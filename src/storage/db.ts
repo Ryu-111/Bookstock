@@ -3,10 +3,9 @@ import type {
   Book,
   BookCandidate,
   ExportFile,
-  Format,
+  NewRecord,
   ReadingLog,
   ReadingRecord,
-  Status,
 } from '../domain/book.js';
 import { validateExport } from '../domain/validate.js';
 
@@ -68,13 +67,7 @@ export function openDb(
   });
 }
 
-export interface NewRecord {
-  format: Format;
-  status: Status;
-  platform?: string;
-  startedAt?: string;
-  finishedAt?: string;
-}
+export type { NewRecord } from '../domain/book.js';
 
 export type ImportMode = 'replace' | 'merge';
 

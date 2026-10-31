@@ -57,6 +57,15 @@ export interface ReadingRecord {
   updatedAt: string;
 }
 
+/** 新しく追加する記録の入力。id・日時はRepositoryが振る。 */
+export type NewRecord = Pick<ReadingRecord, 'format' | 'status'> &
+  Partial<
+    Pick<
+      ReadingRecord,
+      'platform' | 'startedAt' | 'finishedAt' | 'totalMinutes'
+    >
+  >;
+
 export interface ReadingLog {
   id: string;
   recordId: string;

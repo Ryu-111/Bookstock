@@ -1,18 +1,18 @@
 import { useState } from 'preact/hooks';
-import { FORMATS, STATUSES } from '../domain/book.js';
-import type { BookCandidate, Format, Status } from '../domain/book.js';
-import { oneOf } from '../domain/guard.js';
+import type { BookCandidate } from '../domain/book.js';
+import { toIsbn13 } from '../domain/isbn.js';
+import { emptyManualFields } from '../domain/manual.js';
+import type { ManualFields } from '../domain/manual.js';
 import { lookupIsbn, searchTitle } from '../lookup/index.js';
 import type { Attempt, LookupDeps } from '../lookup/index.js';
 import { browserXmlParser } from '../lookup/ndl.js';
-import type { NewRecord } from '../storage/db.js';
-import {
-  formatLabel,
-  outcomeLabel,
-  sourceLabel,
-  statusLabel,
-  todayLocal,
-} from './labels.js';
+import { outcomeLabel, sourceLabel } from './labels.js';
+import { ManualForm } from './manual-form.js';
+import { SaveForm } from './save-form.js';
+import type { SaveHandler } from './save-form.js';
+import { Scanner } from './scanner.js';
+
+export type { SaveHandler } from './save-form.js';
 
 const deps: LookupDeps = {
   fetch: (url, init) => window.fetch(url, init),
@@ -24,81 +24,6 @@ type State =
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
   | { kind: 'done'; books: BookCandidate[]; attempts: Attempt[] };
-
-export type SaveHandler = (
-  book: BookCandidate,
-  record: NewRecord,
-) => Promise<void>;
-
-function SaveForm({
-  book,
-  onSave,
-}: {
-  book: BookCandidate;
-  onSave: SaveHandler;
-}) {
-  const [format, setFormat] = useState<Format>('paper');
-  const [status, setStatus] = useState<Status>('reading');
-  const [platform, setPlatform] = useState('');
-  const [saving, setSaving] = useState(false);
-  return (
-    <form
-      class="save"
-      onSubmit={(e) => {
-        e.preventDefault();
-        const record: NewRecord = { format, status };
-        const today = todayLocal();
-        if (status === 'reading' || status === 'finished')
-          record.startedAt = today;
-        if (status === 'finished') record.finishedAt = today;
-        if (format !== 'paper' && platform.trim())
-          record.platform = platform.trim();
-        setSaving(true);
-        void onSave(book, record).finally(() => setSaving(false));
-      }}
-    >
-      <select
-        aria-label="形式"
-        value={format}
-        onChange={(e) => {
-          const next = oneOf(FORMATS, e.currentTarget.value);
-          if (next) setFormat(next);
-        }}
-      >
-        {FORMATS.map((f) => (
-          <option key={f} value={f}>
-            {formatLabel[f]}
-          </option>
-        ))}
-      </select>
-      <select
-        aria-label="状態"
-        value={status}
-        onChange={(e) => {
-          const next = oneOf(STATUSES, e.currentTarget.value);
-          if (next) setStatus(next);
-        }}
-      >
-        {STATUSES.map((s) => (
-          <option key={s} value={s}>
-            {statusLabel[s]}
-          </option>
-        ))}
-      </select>
-      {format !== 'paper' && (
-        <input
-          aria-label="サービス"
-          placeholder={format === 'audiobook' ? 'Audibleなど' : 'Kindleなど'}
-          value={platform}
-          onInput={(e) => setPlatform(e.currentTarget.value)}
-        />
-      )}
-      <button type="submit" disabled={saving}>
-        保存
-      </button>
-    </form>
-  );
-}
 
 function BookCard({
   book,
@@ -135,21 +60,32 @@ function BookCard({
             .filter(Boolean)
             .join(' / ')}
         </small>
-        <SaveForm book={book} onSave={onSave} />
+        <SaveForm getBook={() => book} onSave={onSave} />
       </div>
     </li>
   );
 }
 
+/** 検索語から手入力フォームの初期値を作る。ISBNならISBN欄、それ以外はタイトル欄に入れる。 */
+function manualInitial(query: string): ManualFields {
+  const isbn = toIsbn13(query);
+  return isbn
+    ? { ...emptyManualFields, isbn }
+    : { ...emptyManualFields, title: query.trim() };
+}
+
 export function Search({ onSave }: { onSave: SaveHandler }) {
   const [query, setQuery] = useState('');
   const [state, setState] = useState<State>({ kind: 'idle' });
+  const [scanning, setScanning] = useState(false);
+  const [manual, setManual] = useState<ManualFields>();
 
-  async function search(mode: 'isbn' | 'title') {
+  async function search(mode: 'isbn' | 'title', input = query) {
+    setManual(undefined);
     setState({ kind: 'loading' });
     try {
       if (mode === 'isbn') {
-        const result = await lookupIsbn(query, deps);
+        const result = await lookupIsbn(input, deps);
         if (!result.ok) {
           setState({ kind: 'error', message: 'ISBNとして正しくありません' });
           return;
@@ -160,16 +96,24 @@ export function Search({ onSave }: { onSave: SaveHandler }) {
           attempts: result.attempts,
         });
       } else {
-        setState({ kind: 'done', ...(await searchTitle(query, deps)) });
+        setState({ kind: 'done', ...(await searchTitle(input, deps)) });
       }
     } catch {
       setState({ kind: 'error', message: '検索に失敗しました' });
     }
   }
 
+  const save: SaveHandler = async (book, record) => {
+    if (!(await onSave(book, record))) return false;
+    setManual(undefined);
+    setState({ kind: 'idle' });
+    setQuery('');
+    return true;
+  };
+
   return (
     <section>
-      <h2>本を探す</h2>
+      <h2>本を登録する</h2>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -192,7 +136,26 @@ export function Search({ onSave }: { onSave: SaveHandler }) {
         >
           タイトルで検索
         </button>
+        <button
+          type="button"
+          onClick={() => setScanning(true)}
+          disabled={scanning}
+        >
+          バーコードを読み取る
+        </button>
+        <button type="button" onClick={() => setManual(manualInitial(query))}>
+          手入力
+        </button>
       </form>
+      {scanning && (
+        <Scanner
+          onIsbn={(isbn) => {
+            setQuery(isbn);
+            void search('isbn', isbn);
+          }}
+          onClose={() => setScanning(false)}
+        />
+      )}
       {state.kind === 'loading' && <p>検索中…</p>}
       {state.kind === 'error' && <p role="alert">{state.message}</p>}
       {state.kind === 'done' && (
@@ -205,15 +168,30 @@ export function Search({ onSave }: { onSave: SaveHandler }) {
             ))}
           </ul>
           {state.books.length === 0 ? (
-            <p>見つかりませんでした。手入力での登録はM3で追加します。</p>
+            <p>
+              見つかりませんでした。{' '}
+              <button
+                type="button"
+                onClick={() => setManual(manualInitial(query))}
+              >
+                手入力で登録する
+              </button>
+            </p>
           ) : (
             <ul class="books">
               {state.books.map((b) => (
-                <BookCard key={b.isbn13 ?? b.title} book={b} onSave={onSave} />
+                <BookCard key={b.isbn13 ?? b.title} book={b} onSave={save} />
               ))}
             </ul>
           )}
         </>
+      )}
+      {manual && (
+        <ManualForm
+          key={JSON.stringify(manual)}
+          initial={manual}
+          onSave={save}
+        />
       )}
     </section>
   );

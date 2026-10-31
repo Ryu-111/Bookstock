@@ -28,7 +28,11 @@ export function Library({
                   {formatLabel[r.format]}
                   {r.platform ? `（${r.platform}）` : ''} /{' '}
                   {statusLabel[r.status]}
+                  {r.startedAt && r.status === 'reading'
+                    ? ` / ${r.startedAt}から`
+                    : ''}
                   {r.finishedAt ? ` / ${r.finishedAt}読了` : ''}
+                  {r.totalMinutes ? ` / ${r.totalMinutes}分` : ''}
                 </span>{' '}
                 <button
                   type="button"

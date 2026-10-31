@@ -48,13 +48,18 @@ export function App() {
   const { repo } = state;
   const refresh = async () =>
     setState({ kind: 'ready', repo, data: await repo.snapshot() });
-  const run = async (action: () => Promise<unknown>, done: string) => {
+  const run = async (
+    action: () => Promise<unknown>,
+    done: string,
+  ): Promise<boolean> => {
     try {
       await action();
       await refresh();
       setNotice(done);
+      return true;
     } catch (error) {
       setNotice(message(error, '保存に失敗しました'));
+      return false;
     }
   };
   const onSave: SaveHandler = (book, record) =>
@@ -67,9 +72,9 @@ export function App() {
       <Search onSave={onSave} />
       <Library
         data={state.data}
-        onDelete={(id) =>
-          run(() => repo.deleteRecord(id), '記録を削除しました')
-        }
+        onDelete={async (id) => {
+          await run(() => repo.deleteRecord(id), '記録を削除しました');
+        }}
       />
       <DataPanel
         data={state.data}
