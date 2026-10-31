@@ -1,0 +1,121 @@
+import type { BookCandidate, BookSource } from '../domain/book.js';
+import { toIsbn13 } from '../domain/isbn.js';
+import { googleIsbnUrl, googleTitleUrl, parseGoogle } from './google.js';
+import { fetchText } from './http.js';
+import type { FetchFailure, FetchLike } from './http.js';
+import { ndlIsbnUrl, ndlTitleUrl, parseNdl } from './ndl.js';
+import type { XmlParser } from './ndl.js';
+import { openbdUrl, parseOpenbd } from './openbd.js';
+
+export interface LookupDeps {
+  fetch: FetchLike;
+  parseXml: XmlParser;
+  timeoutMs?: number;
+}
+
+export type Outcome = 'found' | 'not_found' | FetchFailure;
+export type RemoteSource = Exclude<BookSource, 'manual'>;
+export interface Attempt {
+  source: RemoteSource;
+  outcome: Outcome;
+}
+
+interface SourceResult {
+  books: BookCandidate[];
+  attempt: Attempt;
+}
+
+async function query(
+  source: RemoteSource,
+  url: string,
+  parse: (body: string) => BookCandidate[],
+  deps: LookupDeps,
+): Promise<SourceResult> {
+  const result = await fetchText(url, deps.fetch, deps.timeoutMs);
+  if (!result.ok)
+    return { books: [], attempt: { source, outcome: result.reason } };
+  const books = parse(result.text);
+  return {
+    books,
+    attempt: { source, outcome: books.length > 0 ? 'found' : 'not_found' },
+  };
+}
+
+/** 空の項目だけを補う。 */
+function fill(base: BookCandidate, extra: BookCandidate): BookCandidate {
+  const merged = { ...base };
+  if (merged.authors.length === 0 && extra.authors.length > 0)
+    merged.authors = extra.authors;
+  for (const key of [
+    'publisher',
+    'publishedDate',
+    'coverUrl',
+    'pageCount',
+    'ndc',
+  ] as const) {
+    if (merged[key] === undefined && extra[key] !== undefined)
+      Object.assign(merged, { [key]: extra[key] });
+  }
+  return merged;
+}
+
+function complete(book: BookCandidate | null): boolean {
+  return Boolean(book?.coverUrl && book.pageCount);
+}
+
+export type IsbnLookup =
+  | { ok: true; book: BookCandidate | null; attempts: Attempt[] }
+  | { ok: false; error: 'invalid_isbn' };
+
+/** ISBNで openBD → NDL → Google の順に引き、足りない項目を後の結果で補う。 */
+export async function lookupIsbn(
+  input: string,
+  deps: LookupDeps,
+): Promise<IsbnLookup> {
+  const isbn13 = toIsbn13(input);
+  if (!isbn13) return { ok: false, error: 'invalid_isbn' };
+  const sources: [RemoteSource, string, (body: string) => BookCandidate[]][] = [
+    ['openbd', openbdUrl(isbn13), parseOpenbd],
+    ['ndl', ndlIsbnUrl(isbn13), (body) => parseNdl(body, deps.parseXml)],
+    ['google', googleIsbnUrl(isbn13), parseGoogle],
+  ];
+  let book: BookCandidate | null = null;
+  const attempts: Attempt[] = [];
+  for (const [source, url, parse] of sources) {
+    if (complete(book)) break;
+    const result = await query(source, url, parse, deps);
+    attempts.push(result.attempt);
+    const found =
+      result.books.find((b) => b.isbn13 === isbn13) ?? result.books[0];
+    if (!found) continue;
+    book = book ? fill(book, found) : { ...found, isbn13 };
+  }
+  return { ok: true, book, attempts };
+}
+
+function key(book: BookCandidate): string {
+  return book.isbn13 ?? `${book.title}|${book.authors.join(',')}`;
+}
+
+/** タイトルでNDLとGoogleを並行に検索し、重複をまとめる。 */
+export async function searchTitle(
+  input: string,
+  deps: LookupDeps,
+): Promise<{ books: BookCandidate[]; attempts: Attempt[] }> {
+  const q = input.trim();
+  if (!q) return { books: [], attempts: [] };
+  const results = await Promise.all([
+    query('ndl', ndlTitleUrl(q), (body) => parseNdl(body, deps.parseXml), deps),
+    query('google', googleTitleUrl(q), parseGoogle, deps),
+  ]);
+  const byKey = new Map<string, BookCandidate>();
+  for (const book of results.flatMap((r) => r.books)) {
+    const k = key(book);
+    const existing = byKey.get(k);
+    byKey.set(k, existing ? fill(existing, book) : book);
+  }
+  return {
+    books: [...byKey.values()],
+    attempts: results.map((r) => r.attempt),
+  };
+}
