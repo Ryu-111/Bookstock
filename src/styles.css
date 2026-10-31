@@ -1,0 +1,294 @@
+:root {
+  color-scheme: light dark;
+  --bg: #fbfaf7;
+  --surface: #ffffff;
+  --text: #1f1d1a;
+  --muted: #6b665e;
+  --border: #e3dfd7;
+  --accent: #2f6f5e;
+  --accent-text: #ffffff;
+  --danger: #b3261e;
+  --radius: 8px;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Hiragino Sans',
+    'Noto Sans JP',
+    sans-serif;
+  line-height: 1.6;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #171614;
+    --surface: #22201d;
+    --text: #ece8e1;
+    --muted: #a39d93;
+    --border: #3a3631;
+    --accent: #7cc4ad;
+    --accent-text: #10201b;
+    --danger: #ff8a80;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+a {
+  color: var(--accent);
+}
+
+h2 {
+  margin: 0.5em 0;
+  font-size: 1.25rem;
+}
+
+h3 {
+  margin: 0 0 0.5em;
+  font-size: 1rem;
+}
+
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.nav nav {
+  display: flex;
+  gap: 4px;
+}
+
+.nav a {
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  text-decoration: none;
+}
+
+.nav a[aria-current='page'] {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.brand {
+  font-weight: 700;
+  color: var(--text) !important;
+}
+
+input,
+select,
+textarea,
+button {
+  font: inherit;
+  max-width: 100%;
+}
+
+input,
+select,
+textarea {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+}
+
+button {
+  padding: 6px 12px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--accent-text);
+  cursor: pointer;
+}
+
+button[type='button'] {
+  background: transparent;
+  color: var(--accent);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+form,
+.row,
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 140px;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.field input,
+.field select,
+.field textarea {
+  color: var(--text);
+  font-size: 1rem;
+  width: 100%;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.card > .field {
+  flex: none;
+}
+
+.card > .row,
+.card > form {
+  align-items: flex-end;
+}
+
+.notice {
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+[role='alert'] {
+  color: var(--danger);
+}
+
+.errors {
+  margin: 0;
+  padding-left: 1.2em;
+}
+
+.filters {
+  margin-bottom: 12px;
+}
+
+.filters input[type='search'] {
+  flex: 1 1 180px;
+}
+
+.shelf {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 16px 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shelf-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.cover {
+  display: block;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--border);
+}
+
+.cover-text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  overflow: hidden;
+  font-size: 0.75rem;
+  text-align: center;
+  color: var(--muted);
+}
+
+.shelf-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.875rem;
+}
+
+.badge {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.books {
+  padding: 0;
+  list-style: none;
+}
+
+.book,
+.book-info {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.book .cover,
+.book-info .cover {
+  width: 72px;
+}
+
+.book-info h2 {
+  margin-top: 0;
+}
+
+.logs {
+  margin: 0;
+  padding-left: 1.2em;
+}
+
+.scanner video {
+  width: 100%;
+  max-width: 480px;
+  border-radius: var(--radius);
+  background: #000;
+}
+
+.danger button {
+  border-color: var(--danger);
+  color: var(--danger);
+}

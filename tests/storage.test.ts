@@ -241,3 +241,97 @@ await test('IndexedDBの中身が壊れていたら読み出しで止める', as
     /保存データが壊れています/,
   );
 });
+
+await test('updateRecord: 状態・評価を変え、updatedAtを進め、作成日時と本は変えない', async () => {
+  const r = new Repository(await openDb(new IDBFactory()), {
+    ...clock(),
+    now: (() => {
+      let t = 0;
+      return () => new Date(Date.UTC(2026, 9, 31, 9, 0, t++));
+    })(),
+  });
+  const { record } = await r.addRecord(candidate, {
+    format: 'paper',
+    status: 'reading',
+  });
+  const updated = await r.updateRecord({
+    ...record,
+    status: 'finished',
+    finishedAt: '2026-10-31',
+    rating: 5,
+    createdAt: '2000-01-01T00:00:00Z',
+  });
+  assert.equal(updated.createdAt, record.createdAt);
+  assert.ok(updated.updatedAt > record.updatedAt);
+  assert.deepEqual((await r.snapshot()).records, [updated]);
+  await assert.rejects(
+    r.updateRecord({ ...record, bookId: 'other' }),
+    /本は変更できません/,
+  );
+  await assert.rejects(
+    r.updateRecord({ ...record, id: 'missing' }),
+    /見つかりません/,
+  );
+  await assert.rejects(
+    r.updateRecord({ ...record, rating: 9 as 5 }),
+    /入力が正しくありません/,
+  );
+  assert.deepEqual((await r.snapshot()).records, [updated]);
+});
+
+await test('updateBook / addRecordForBook: ISBNのない本に別形式の記録を足せる', async () => {
+  const r = await repo();
+  const manual: BookCandidate = {
+    title: '手入力の本',
+    authors: [],
+    source: 'manual',
+  };
+  const { book } = await r.addRecord(manual, {
+    format: 'ebook',
+    status: 'reading',
+  });
+  await r.updateBook({ ...book, title: '直したタイトル' });
+  const audio = await r.addRecordForBook(book.id, {
+    format: 'audiobook',
+    status: 'want',
+  });
+  const data = await r.snapshot();
+  assert.deepEqual(
+    data.books.map((b) => b.title),
+    ['直したタイトル'],
+  );
+  assert.equal(data.records.length, 2);
+  assert.equal(audio.bookId, book.id);
+  await assert.rejects(
+    r.updateBook({ ...book, title: '' }),
+    /入力が正しくありません/,
+  );
+  await assert.rejects(
+    r.updateBook({ ...book, id: 'missing' }),
+    /見つかりません/,
+  );
+  await assert.rejects(
+    r.addRecordForBook('missing', { format: 'paper', status: 'want' }),
+    /見つかりません/,
+  );
+});
+
+await test('addLog / deleteLog: 進捗を足して消せる。存在しない記録・不正値は書かない', async () => {
+  const r = await repo();
+  const { record } = await r.addRecord(candidate, {
+    format: 'paper',
+    status: 'reading',
+  });
+  const log = await r.addLog(record.id, { date: '2026-10-30', pages: 30 });
+  assert.deepEqual((await r.snapshot()).logs, [log]);
+  await assert.rejects(
+    r.addLog('missing', { date: '2026-10-30', pages: 1 }),
+    /見つかりません/,
+  );
+  await assert.rejects(
+    r.addLog(record.id, { date: '30日', pages: 1 }),
+    /入力が正しくありません/,
+  );
+  await r.deleteLog(log.id);
+  assert.deepEqual((await r.snapshot()).logs, []);
+});

@@ -2,9 +2,13 @@ import { useEffect, useState } from 'preact/hooks';
 import type { ExportFile } from './domain/book.js';
 import { Repository, openDb } from './storage/db.js';
 import { DataPanel } from './ui/data.js';
-import { Library } from './ui/library.js';
+import { RecordPage } from './ui/record-page.js';
+import type { RecordActions } from './ui/record-page.js';
+import { href, parseRoute } from './ui/route.js';
+import type { Route } from './ui/route.js';
 import { Search } from './ui/search.js';
 import type { SaveHandler } from './ui/search.js';
+import { Shelf } from './ui/shelf.js';
 
 type State =
   | { kind: 'loading' }
@@ -15,9 +19,42 @@ function message(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
+function navigate(route: Route) {
+  window.location.hash = href(route);
+}
+
+function currentHash(): string {
+  return href(parseRoute(window.location.hash));
+}
+
+function useRoute(): Route {
+  const [route, setRoute] = useState(() => parseRoute(window.location.hash));
+  useEffect(() => {
+    const onChange = () => {
+      setRoute(parseRoute(window.location.hash));
+      window.scrollTo(0, 0);
+    };
+    window.addEventListener('hashchange', onChange);
+    return () => window.removeEventListener('hashchange', onChange);
+  }, []);
+  return route;
+}
+
+const NAV: [Route['page'], string][] = [
+  ['shelf', '本棚'],
+  ['add', '登録'],
+  ['settings', '設定'],
+];
+
 export function App() {
+  const route = useRoute();
   const [state, setState] = useState<State>({ kind: 'loading' });
-  const [notice, setNotice] = useState<string>();
+  /** 通知は出した画面でだけ表示する（atはその画面のhash）。 */
+  const [notice, setNotice] = useState<{
+    text: string;
+    error: boolean;
+    at: string;
+  }>();
 
   useEffect(() => {
     openDb(window.indexedDB)
@@ -36,50 +73,119 @@ export function App() {
       );
   }, []);
 
-  if (state.kind === 'loading') return <p>読み込み中…</p>;
-  if (state.kind === 'error')
+  const header = (
+    <header class="nav">
+      <a href={href({ page: 'shelf' })} class="brand">
+        Bookstock
+      </a>
+      <nav>
+        {NAV.map(([page, label]) => (
+          <a
+            key={page}
+            href={`#/${page === 'shelf' ? '' : page}`}
+            aria-current={route.page === page ? 'page' : undefined}
+          >
+            {label}
+          </a>
+        ))}
+      </nav>
+    </header>
+  );
+
+  if (state.kind !== 'ready')
     return (
-      <main>
-        <h1>Bookstock</h1>
-        <p role="alert">{state.message}</p>
-      </main>
+      <>
+        {header}
+        <main>
+          {state.kind === 'loading' ? (
+            <p>読み込み中…</p>
+          ) : (
+            <p role="alert">{state.message}</p>
+          )}
+        </main>
+      </>
     );
 
   const { repo } = state;
-  const refresh = async () =>
-    setState({ kind: 'ready', repo, data: await repo.snapshot() });
-  const run = async (
-    action: () => Promise<unknown>,
-    done: string,
+  /** 操作して全体を読み直す。成功したらtrue。 */
+  const run = async <T,>(
+    action: () => Promise<T>,
+    done?: string,
+    after?: (value: T) => void,
   ): Promise<boolean> => {
     try {
-      await action();
-      await refresh();
-      setNotice(done);
+      const value = await action();
+      setState({ kind: 'ready', repo, data: await repo.snapshot() });
+      after?.(value);
+      setNotice(
+        done ? { text: done, error: false, at: currentHash() } : undefined,
+      );
       return true;
     } catch (error) {
-      setNotice(message(error, '保存に失敗しました'));
+      setNotice({
+        text: message(error, '保存に失敗しました'),
+        error: true,
+        at: currentHash(),
+      });
       return false;
     }
   };
+
   const onSave: SaveHandler = (book, record) =>
-    run(() => repo.addRecord(book, record), `「${book.title}」を保存しました`);
+    run(
+      () => repo.addRecord(book, record),
+      `「${book.title}」を登録しました`,
+      ({ record: saved }) => navigate({ page: 'record', id: saved.id }),
+    );
+
+  const actions: RecordActions = {
+    updateRecord: (r) => run(() => repo.updateRecord(r)),
+    updateBook: (b) => run(() => repo.updateBook(b), '本の情報を保存しました'),
+    addLog: (id, log) => run(() => repo.addLog(id, log)),
+    deleteLog: (id) => run(() => repo.deleteLog(id)),
+    deleteRecord: (id) =>
+      run(
+        () => repo.deleteRecord(id),
+        '記録を削除しました',
+        () => navigate({ page: 'shelf' }),
+      ),
+    addRecordForBook: (bookId, record) =>
+      run(
+        () => repo.addRecordForBook(bookId, record),
+        '記録を追加しました',
+        (saved) => navigate({ page: 'record', id: saved.id }),
+      ),
+  };
 
   return (
-    <main>
-      <h1>Bookstock</h1>
-      {notice && <p role="status">{notice}</p>}
-      <Search onSave={onSave} />
-      <Library
-        data={state.data}
-        onDelete={async (id) => {
-          await run(() => repo.deleteRecord(id), '記録を削除しました');
-        }}
-      />
-      <DataPanel
-        data={state.data}
-        onImport={(file, mode) => repo.importFile(file, mode).then(refresh)}
-      />
-    </main>
+    <>
+      {header}
+      <main>
+        {notice && notice.at === href(route) && (
+          <p role={notice.error ? 'alert' : 'status'} class="notice">
+            {notice.text}
+          </p>
+        )}
+        {route.page === 'shelf' && <Shelf data={state.data} />}
+        {route.page === 'add' && <Search onSave={onSave} />}
+        {route.page === 'record' && (
+          <RecordPage
+            key={route.id}
+            id={route.id}
+            data={state.data}
+            actions={actions}
+          />
+        )}
+        {route.page === 'settings' && (
+          <DataPanel
+            data={state.data}
+            onImport={async (file, mode) => {
+              await repo.importFile(file, mode);
+              setState({ kind: 'ready', repo, data: await repo.snapshot() });
+            }}
+          />
+        )}
+      </main>
+    </>
   );
 }

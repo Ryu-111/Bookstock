@@ -1,5 +1,12 @@
 import { FORMATS, STATUSES } from './book.js';
-import type { BookCandidate, NewRecord } from './book.js';
+import type {
+  Book,
+  BookCandidate,
+  Format,
+  NewRecord,
+  ReadingLog,
+  ReadingRecord,
+} from './book.js';
 import { normalizeDate, oneOf, positiveInt, text } from './guard.js';
 import { toIsbn13 } from './isbn.js';
 import type { Validation } from './validate.js';
@@ -95,4 +102,150 @@ export function parseRecordFields(fields: RecordFields): Validation<NewRecord> {
   return errors.length > 0
     ? { ok: false, errors }
     : { ok: true, value: record };
+}
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+function isDate(value: string): boolean {
+  return ISO_DATE.test(value) && !Number.isNaN(Date.parse(value));
+}
+
+/** 本を手入力フォームの値にする（本の情報の編集に使う）。 */
+export function bookToFields(book: BookCandidate): ManualFields {
+  return {
+    title: book.title,
+    authors: book.authors.join('、'),
+    publisher: book.publisher ?? '',
+    publishedDate: book.publishedDate ?? '',
+    pageCount: book.pageCount ? String(book.pageCount) : '',
+    isbn: book.isbn13 ?? '',
+  };
+}
+
+/** 手入力フォームの値で既存の本を更新する。idと書影・分類は引き継ぐ。 */
+export function applyBookEdit(
+  book: Book,
+  fields: ManualFields,
+): Validation<Book> {
+  const parsed = parseManualBook(fields);
+  if (!parsed.ok) return parsed;
+  const next: Book = { ...parsed.value, id: book.id };
+  if (book.coverUrl) next.coverUrl = book.coverUrl;
+  if (book.ndc) next.ndc = book.ndc;
+  if (book.asin) next.asin = book.asin;
+  return { ok: true, value: next };
+}
+
+export interface RecordEditFields {
+  format: string;
+  status: string;
+  platform: string;
+  startedAt: string;
+  finishedAt: string;
+  /** '' = 評価なし */
+  rating: string;
+  memo: string;
+  totalMinutes: string;
+  /** 「、」「,」区切り */
+  tags: string;
+}
+
+export function recordToFields(record: ReadingRecord): RecordEditFields {
+  return {
+    format: record.format,
+    status: record.status,
+    platform: record.platform ?? '',
+    startedAt: record.startedAt ?? '',
+    finishedAt: record.finishedAt ?? '',
+    rating: record.rating ? String(record.rating) : '',
+    memo: record.memo ?? '',
+    totalMinutes: record.totalMinutes ? String(record.totalMinutes) : '',
+    tags: record.tags.join('、'),
+  };
+}
+
+export function parseTags(input: string): string[] {
+  return [
+    ...new Set(
+      input
+        .split(/[、,，\n]/)
+        .map((t) => t.trim())
+        .filter(Boolean),
+    ),
+  ];
+}
+
+const RATINGS = [1, 2, 3, 4, 5] as const;
+
+/** 編集フォームの値を現在の記録に当てる。id・本・作成日時は変えない。 */
+export function parseRecordEdit(
+  fields: RecordEditFields,
+  current: ReadingRecord,
+): Validation<ReadingRecord> {
+  const errors: string[] = [];
+  const format = oneOf(FORMATS, fields.format);
+  const status = oneOf(STATUSES, fields.status);
+  if (!format) errors.push('形式を選んでください');
+  if (!status) errors.push('状態を選んでください');
+  const next: ReadingRecord = {
+    id: current.id,
+    bookId: current.bookId,
+    format: format ?? current.format,
+    status: status ?? current.status,
+    tags: parseTags(fields.tags),
+    createdAt: current.createdAt,
+    updatedAt: current.updatedAt,
+  };
+  const platform = text(fields.platform);
+  if (platform && next.format !== 'paper') next.platform = platform;
+  for (const key of ['startedAt', 'finishedAt'] as const) {
+    const value = fields[key].trim();
+    if (!value) continue;
+    if (isDate(value)) next[key] = value;
+    else
+      errors.push(
+        `${key === 'startedAt' ? '開始日' : '読了日'}が正しくありません`,
+      );
+  }
+  if (next.startedAt && next.finishedAt && next.startedAt > next.finishedAt)
+    errors.push('開始日は読了日より前にしてください');
+  if (fields.rating.trim()) {
+    const rating = RATINGS.find((r) => String(r) === fields.rating.trim());
+    if (rating) next.rating = rating;
+    else errors.push('評価は1〜5で選んでください');
+  }
+  const memo = text(fields.memo);
+  if (memo) next.memo = memo;
+  if (next.format === 'audiobook' && text(fields.totalMinutes)) {
+    const minutes = positiveInt(fields.totalMinutes);
+    if (minutes) next.totalMinutes = minutes;
+    else errors.push('長さは分の整数で入力してください');
+  }
+  return errors.length > 0 ? { ok: false, errors } : { ok: true, value: next };
+}
+
+export type NewLog = Omit<ReadingLog, 'id' | 'recordId'>;
+
+/** 進捗の入力。オーディオブックは分、それ以外はページ数として扱う。 */
+export function parseLogFields(
+  fields: { date: string; amount: string },
+  format: Format,
+): Validation<NewLog> {
+  const errors: string[] = [];
+  if (!isDate(fields.date)) errors.push('日付を入力してください');
+  const amount = positiveInt(fields.amount);
+  if (!amount)
+    errors.push(
+      format === 'audiobook'
+        ? '聴いた時間を分の整数で入力してください'
+        : 'ページ数を正の整数で入力してください',
+    );
+  if (errors.length > 0 || !amount) return { ok: false, errors };
+  return {
+    ok: true,
+    value:
+      format === 'audiobook'
+        ? { date: fields.date, minutes: amount }
+        : { date: fields.date, pages: amount },
+  };
 }

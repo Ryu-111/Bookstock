@@ -78,7 +78,7 @@ function compact<T extends object>(value: T): T {
   ) as T;
 }
 
-function validateBook(value: unknown, path: string): Validation<Book> {
+export function validateBook(value: unknown, path: string): Validation<Book> {
   if (!isObject(value))
     return { ok: false, errors: [`${path}: objectが必要です`] };
   const c = new Checker(value, path);
@@ -103,7 +103,7 @@ function validateBook(value: unknown, path: string): Validation<Book> {
     : { ok: true, value: book as Book };
 }
 
-function validateRecord(
+export function validateRecord(
   value: unknown,
   path: string,
 ): Validation<ReadingRecord> {
@@ -133,7 +133,10 @@ function validateRecord(
     : { ok: true, value: record as ReadingRecord };
 }
 
-function validateLog(value: unknown, path: string): Validation<ReadingLog> {
+export function validateLog(
+  value: unknown,
+  path: string,
+): Validation<ReadingLog> {
   if (!isObject(value))
     return { ok: false, errors: [`${path}: objectが必要です`] };
   const c = new Checker(value, path);

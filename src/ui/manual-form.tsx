@@ -13,6 +13,32 @@ const fieldLabels: [keyof ManualFields, string, string?][] = [
   ['isbn', 'ISBN', '電子書籍・オーディオブックは空欄でよい'],
 ];
 
+/** 本の情報の入力欄（登録と編集で共通）。 */
+export function BookFields({
+  fields,
+  onChange,
+}: {
+  fields: ManualFields;
+  onChange: (fields: ManualFields) => void;
+}) {
+  return (
+    <>
+      {fieldLabels.map(([key, label, placeholder]) => (
+        <label key={key} class="field">
+          {label}
+          <input
+            value={fields[key]}
+            placeholder={placeholder}
+            onInput={(e) =>
+              onChange({ ...fields, [key]: e.currentTarget.value })
+            }
+          />
+        </label>
+      ))}
+    </>
+  );
+}
+
 /** ISBNのない電子書籍・オーディオブックや、検索で見つからない本を登録する。 */
 export function ManualForm({
   initial,
@@ -23,20 +49,9 @@ export function ManualForm({
 }) {
   const [fields, setFields] = useState(initial);
   return (
-    <section aria-label="手入力で登録">
+    <section aria-label="手入力で登録" class="card">
       <h3>手入力で登録</h3>
-      {fieldLabels.map(([key, label, placeholder]) => (
-        <label key={key} class="field">
-          {label}
-          <input
-            value={fields[key]}
-            placeholder={placeholder}
-            onInput={(e) =>
-              setFields({ ...fields, [key]: e.currentTarget.value })
-            }
-          />
-        </label>
-      ))}
+      <BookFields fields={fields} onChange={setFields} />
       <SaveForm
         getBook={() => {
           const result = parseManualBook(fields);

@@ -6,6 +6,7 @@ import type { ManualFields } from '../domain/manual.js';
 import { lookupIsbn, searchTitle } from '../lookup/index.js';
 import type { Attempt, LookupDeps } from '../lookup/index.js';
 import { browserXmlParser } from '../lookup/ndl.js';
+import { Cover } from './cover.js';
 import { outcomeLabel, sourceLabel } from './labels.js';
 import { ManualForm } from './manual-form.js';
 import { SaveForm } from './save-form.js';
@@ -34,17 +35,7 @@ function BookCard({
 }) {
   return (
     <li class="book">
-      {book.coverUrl && (
-        <img
-          src={book.coverUrl}
-          alt=""
-          width={64}
-          loading="lazy"
-          onError={(e) => {
-            e.currentTarget.hidden = true;
-          }}
-        />
-      )}
+      <Cover book={book} />
       <div>
         <strong>{book.title}</strong>
         <div>{book.authors.join('、') || '著者不明'}</div>
