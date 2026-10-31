@@ -1,0 +1,4 @@
+{
+  "check": "npm run check",
+  "typecheck": true
+}
