@@ -14,6 +14,7 @@
 
 ## 未確認
 
-- NDLサーチのOpenSearchがブラウザから直接呼べるか（CORS）。呼べなければ、ISBNはopenBD → Google Books、タイトル検索はGoogle Booksだけにする。
+- NDLサーチのOpenSearchがブラウザから直接呼べるか（CORS）。トップページの検索フォームで確かめる。呼べなければ、ISBNはopenBD → Google Books、タイトル検索はGoogle Booksだけにする。
+- openBDの提供状況（v1は2023年に終了が発表された。ADR-0003の追記を参照）。
+- キーなしのGoogle Booksが、利用者のIPで429にならずに使えるか。
 - iOS Safariの `BarcodeDetector` 対応状況。
-- openBDの提供状況（実装時に公式サイトで確認する）。

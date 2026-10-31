@@ -1,0 +1,21 @@
+[
+  {
+    "summary": {
+      "isbn": "9784000000000",
+      "title": "テスト用の本",
+      "volume": "上",
+      "series": "",
+      "publisher": "架空出版",
+      "pubdate": "20240315",
+      "cover": "",
+      "author": "山田太郎／著 鈴木花子／訳"
+    },
+    "onix": {
+      "DescriptiveDetail": {
+        "Extent": [
+          { "ExtentType": "11", "ExtentValue": "320", "ExtentUnit": "03" }
+        ]
+      }
+    }
+  }
+]

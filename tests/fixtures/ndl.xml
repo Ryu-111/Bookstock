@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <channel>
+    <title>テスト</title>
+    <item>
+      <title>テスト用の本 上</title>
+      <dc:title>テスト用の本 上</dc:title>
+      <dc:creator>山田 太郎 著</dc:creator>
+      <dc:creator>鈴木 花子 訳</dc:creator>
+      <dc:publisher>架空出版</dc:publisher>
+      <dcterms:issued xsi:type="dcterms:W3CDTF">2024.3</dcterms:issued>
+      <dc:identifier xsi:type="dcndl:ISBN">978-4-00-000000-0</dc:identifier>
+      <dc:subject xsi:type="dcndl:NDC9">913.6</dc:subject>
+      <dc:subject xsi:type="dcndl:NDC10">913.6</dc:subject>
+      <dc:extent>318p ; 19cm</dc:extent>
+    </item>
+    <item>
+      <title>ISBNのない資料</title>
+      <dc:title>ISBNのない資料</dc:title>
+    </item>
+    <item>
+      <dc:creator>タイトルなし</dc:creator>
+    </item>
+  </channel>
+</rss>

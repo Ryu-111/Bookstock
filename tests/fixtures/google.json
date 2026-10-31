@@ -1,0 +1,22 @@
+{
+  "kind": "books#volumes",
+  "totalItems": 2,
+  "items": [
+    {
+      "volumeInfo": {
+        "title": "Synthetic Book",
+        "subtitle": "A Test",
+        "authors": ["Jane Example", 42],
+        "publisher": "Example Press",
+        "publishedDate": "2021-07",
+        "industryIdentifiers": [
+          { "type": "ISBN_10", "identifier": "4003101014" },
+          { "type": "OTHER", "identifier": "X:1" }
+        ],
+        "pageCount": 250,
+        "imageLinks": { "thumbnail": "http://books.example.test/cover.jpg" }
+      }
+    },
+    { "volumeInfo": { "title": 123, "pageCount": "many" } }
+  ]
+}
