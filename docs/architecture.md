@@ -77,6 +77,7 @@ interface Book {
   source: 'openbd' | 'ndl' | 'google' | 'manual';
 }
 
+// コードでは TypeScript の Record 型と区別するため ReadingRecord と呼ぶ。
 interface Record {
   id: string;
   bookId: string;
@@ -111,7 +112,10 @@ interface ExportFile {
 ```
 
 - IndexedDBのstore: `books`（index: `isbn13`）、`records`（index: `bookId`、`status`、`finishedAt`）、`logs`（index: `recordId`、`date`）。
-- インポートは検証してから、1つのトランザクションで置換、またはIDで統合する。不正なファイルでは何も書き込まない。
+- インポートは検証してから、1つのトランザクションで置換、またはIDで統合する。統合の結果も参照の整合性を検証する。不正なファイルでは何も書き込まない。
+- IndexedDBから読み出した値も同じ検証にかける。壊れていたら画面に流さずにエラーを表示する。
+- 本と記録の追加は1つのトランザクションで行う。同じISBNの本は再利用する（ISBNのない本は毎回新しい本になる）。記録を消すと、その進捗ログと、どの記録からも参照されなくなった本も消す。
+- 検証は `src/domain/validate.ts`、IndexedDBは `src/storage/db.ts`、ファイルの読み込みは `src/storage/export-file.ts`。
 
 ## 画面
 

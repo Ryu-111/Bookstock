@@ -1,145 +1,80 @@
-import { useState } from 'preact/hooks';
-import type { BookCandidate, BookSource } from './domain/book.js';
-import { lookupIsbn, searchTitle } from './lookup/index.js';
-import type { Attempt, LookupDeps, Outcome } from './lookup/index.js';
-import { browserXmlParser } from './lookup/ndl.js';
-
-const deps: LookupDeps = {
-  fetch: (url, init) => window.fetch(url, init),
-  parseXml: browserXmlParser,
-};
-
-const outcomeLabel: Record<Outcome, string> = {
-  found: '成功',
-  not_found: '該当なし',
-  timeout: 'タイムアウト',
-  network: '通信失敗（CORS・遮断を含む）',
-  http: 'HTTPエラー',
-  quota: '上限',
-};
-
-const sourceLabel: Record<BookSource, string> = {
-  openbd: 'openBD',
-  ndl: 'NDLサーチ',
-  google: 'Google Books',
-  manual: '手入力',
-};
+import { useEffect, useState } from 'preact/hooks';
+import type { ExportFile } from './domain/book.js';
+import { Repository, openDb } from './storage/db.js';
+import { DataPanel } from './ui/data.js';
+import { Library } from './ui/library.js';
+import { Search } from './ui/search.js';
+import type { SaveHandler } from './ui/search.js';
 
 type State =
-  | { kind: 'idle' }
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
-  | { kind: 'done'; books: BookCandidate[]; attempts: Attempt[] };
+  | { kind: 'ready'; repo: Repository; data: ExportFile };
 
-function BookCard({ book }: { book: BookCandidate }) {
-  return (
-    <li class="book">
-      {book.coverUrl && (
-        <img
-          src={book.coverUrl}
-          alt=""
-          width={64}
-          loading="lazy"
-          onError={(e) => {
-            e.currentTarget.hidden = true;
-          }}
-        />
-      )}
-      <div>
-        <strong>{book.title}</strong>
-        <div>{book.authors.join('、') || '著者不明'}</div>
-        <small>
-          {[
-            book.publisher,
-            book.publishedDate,
-            book.pageCount && `${book.pageCount}ページ`,
-            book.isbn13 && `ISBN ${book.isbn13}`,
-            book.ndc && `NDC ${book.ndc}`,
-            `出典: ${sourceLabel[book.source]}`,
-          ]
-            .filter(Boolean)
-            .join(' / ')}
-        </small>
-      </div>
-    </li>
-  );
+function message(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
 }
 
 export function App() {
-  const [query, setQuery] = useState('');
-  const [state, setState] = useState<State>({ kind: 'idle' });
+  const [state, setState] = useState<State>({ kind: 'loading' });
+  const [notice, setNotice] = useState<string>();
 
-  async function search(mode: 'isbn' | 'title') {
-    setState({ kind: 'loading' });
-    try {
-      if (mode === 'isbn') {
-        const result = await lookupIsbn(query, deps);
-        if (!result.ok) {
-          setState({ kind: 'error', message: 'ISBNとして正しくありません' });
-          return;
-        }
+  useEffect(() => {
+    openDb(window.indexedDB)
+      .then(async (db) => {
+        const repo = new Repository(db);
+        setState({ kind: 'ready', repo, data: await repo.snapshot() });
+      })
+      .catch((error: unknown) =>
         setState({
-          kind: 'done',
-          books: result.book ? [result.book] : [],
-          attempts: result.attempts,
-        });
-      } else {
-        setState({ kind: 'done', ...(await searchTitle(query, deps)) });
-      }
-    } catch {
-      setState({ kind: 'error', message: '検索に失敗しました' });
+          kind: 'error',
+          message: message(
+            error,
+            '保存領域を開けません（プライベートモードなど）',
+          ),
+        }),
+      );
+  }, []);
+
+  if (state.kind === 'loading') return <p>読み込み中…</p>;
+  if (state.kind === 'error')
+    return (
+      <main>
+        <h1>Bookstock</h1>
+        <p role="alert">{state.message}</p>
+      </main>
+    );
+
+  const { repo } = state;
+  const refresh = async () =>
+    setState({ kind: 'ready', repo, data: await repo.snapshot() });
+  const run = async (action: () => Promise<unknown>, done: string) => {
+    try {
+      await action();
+      await refresh();
+      setNotice(done);
+    } catch (error) {
+      setNotice(message(error, '保存に失敗しました'));
     }
-  }
+  };
+  const onSave: SaveHandler = (book, record) =>
+    run(() => repo.addRecord(book, record), `「${book.title}」を保存しました`);
 
   return (
     <main>
       <h1>Bookstock</h1>
-      <p>書誌検索の確認（保存はまだできません）</p>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          void search('isbn');
-        }}
-      >
-        <input
-          aria-label="ISBNまたはタイトル"
-          value={query}
-          onInput={(e) => setQuery(e.currentTarget.value)}
-          placeholder="ISBN（978…）またはタイトル"
-        />
-        <button type="submit" disabled={state.kind === 'loading'}>
-          ISBNで検索
-        </button>
-        <button
-          type="button"
-          disabled={state.kind === 'loading'}
-          onClick={() => void search('title')}
-        >
-          タイトルで検索
-        </button>
-      </form>
-      {state.kind === 'loading' && <p>検索中…</p>}
-      {state.kind === 'error' && <p role="alert">{state.message}</p>}
-      {state.kind === 'done' && (
-        <section>
-          <ul aria-label="APIごとの結果">
-            {state.attempts.map((a) => (
-              <li key={a.source}>
-                {sourceLabel[a.source]}: {outcomeLabel[a.outcome]}
-              </li>
-            ))}
-          </ul>
-          {state.books.length === 0 ? (
-            <p>見つかりませんでした。手入力での登録はM3で追加します。</p>
-          ) : (
-            <ul class="books">
-              {state.books.map((b) => (
-                <BookCard key={b.isbn13 ?? b.title} book={b} />
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
+      {notice && <p role="status">{notice}</p>}
+      <Search onSave={onSave} />
+      <Library
+        data={state.data}
+        onDelete={(id) =>
+          run(() => repo.deleteRecord(id), '記録を削除しました')
+        }
+      />
+      <DataPanel
+        data={state.data}
+        onImport={(file, mode) => repo.importFile(file, mode).then(refresh)}
+      />
     </main>
   );
 }

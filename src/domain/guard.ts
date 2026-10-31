@@ -63,3 +63,11 @@ export function stripRole(name: string): string {
     .replace(/[\s\u3000]+(?:著|訳|編|作|文|絵|画|監修|原作|編著|共著)$/, '')
     .trim();
 }
+
+/** 値が候補のいずれかならその値、そうでなければundefined。 */
+export function oneOf<T extends string>(
+  values: readonly T[],
+  value: unknown,
+): T | undefined {
+  return values.find((v) => v === value);
+}
