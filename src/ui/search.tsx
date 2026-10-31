@@ -7,6 +7,7 @@ import { lookupIsbn, searchTitle } from '../lookup/index.js';
 import type { Attempt, LookupDeps } from '../lookup/index.js';
 import { browserXmlParser } from '../lookup/ndl.js';
 import { Cover } from './cover.js';
+import { Icon } from './ios.js';
 import { outcomeLabel, sourceLabel } from './labels.js';
 import { ManualForm } from './manual-form.js';
 import { SaveForm } from './save-form.js';
@@ -26,34 +27,23 @@ type State =
   | { kind: 'error'; message: string }
   | { kind: 'done'; books: BookCandidate[]; attempts: Attempt[] };
 
-function BookCard({
-  book,
-  onSave,
-}: {
-  book: BookCandidate;
-  onSave: SaveHandler;
-}) {
+function bookMeta(book: BookCandidate): string {
+  return [
+    book.publisher,
+    book.publishedDate,
+    book.pageCount && `${book.pageCount}ページ`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+function Attempts({ attempts }: { attempts: Attempt[] }) {
   return (
-    <li class="book">
-      <Cover book={book} />
-      <div>
-        <strong>{book.title}</strong>
-        <div>{book.authors.join('、') || '著者不明'}</div>
-        <small>
-          {[
-            book.publisher,
-            book.publishedDate,
-            book.pageCount && `${book.pageCount}ページ`,
-            book.isbn13 && `ISBN ${book.isbn13}`,
-            book.ndc && `NDC ${book.ndc}`,
-            `出典: ${sourceLabel[book.source]}`,
-          ]
-            .filter(Boolean)
-            .join(' / ')}
-        </small>
-        <SaveForm getBook={() => book} onSave={onSave} />
-      </div>
-    </li>
+    <p class="footnote" aria-label="APIごとの結果">
+      {attempts
+        .map((a) => `${sourceLabel[a.source]}: ${outcomeLabel[a.outcome]}`)
+        .join(' / ')}
+    </p>
   );
 }
 
@@ -70,12 +60,16 @@ export function Search({ onSave }: { onSave: SaveHandler }) {
   const [state, setState] = useState<State>({ kind: 'idle' });
   const [scanning, setScanning] = useState(false);
   const [manual, setManual] = useState<ManualFields>();
+  const [selected, setSelected] = useState<BookCandidate>();
 
-  async function search(mode: 'isbn' | 'title', input = query) {
+  /** ISBNとして正しければISBNで、そうでなければタイトルで検索する。 */
+  async function search(input = query) {
+    if (!input.trim()) return;
     setManual(undefined);
+    setSelected(undefined);
     setState({ kind: 'loading' });
     try {
-      if (mode === 'isbn') {
+      if (toIsbn13(input)) {
         const result = await lookupIsbn(input, deps);
         if (!result.ok) {
           setState({ kind: 'error', message: 'ISBNとして正しくありません' });
@@ -86,6 +80,7 @@ export function Search({ onSave }: { onSave: SaveHandler }) {
           books: result.book ? [result.book] : [],
           attempts: result.attempts,
         });
+        if (result.book) setSelected(result.book);
       } else {
         setState({ kind: 'done', ...(await searchTitle(input, deps)) });
       }
@@ -97,6 +92,7 @@ export function Search({ onSave }: { onSave: SaveHandler }) {
   const save: SaveHandler = async (book, record) => {
     if (!(await onSave(book, record))) return false;
     setManual(undefined);
+    setSelected(undefined);
     setState({ kind: 'idle' });
     setQuery('');
     return true;
@@ -104,77 +100,106 @@ export function Search({ onSave }: { onSave: SaveHandler }) {
 
   return (
     <section>
-      <h2>本を登録する</h2>
+      <h1 class="large-title">登録</h1>
       <form
+        class="search-row"
+        role="search"
         onSubmit={(e) => {
           e.preventDefault();
-          void search('isbn');
+          void search();
         }}
       >
-        <input
-          aria-label="ISBNまたはタイトル"
-          value={query}
-          onInput={(e) => setQuery(e.currentTarget.value)}
-          placeholder="ISBN（978…）またはタイトル"
-        />
-        <button type="submit" disabled={state.kind === 'loading'}>
-          ISBNで検索
-        </button>
+        <label class="search-field">
+          <Icon name="search" />
+          <input
+            type="search"
+            enterKeyHint="search"
+            aria-label="ISBNまたはタイトル"
+            value={query}
+            onInput={(e) => setQuery(e.currentTarget.value)}
+            placeholder="ISBN・タイトルで検索"
+          />
+        </label>
+      </form>
+      <div class="action-row">
         <button
           type="button"
-          disabled={state.kind === 'loading'}
-          onClick={() => void search('title')}
-        >
-          タイトルで検索
-        </button>
-        <button
-          type="button"
+          class="button-tinted"
           onClick={() => setScanning(true)}
           disabled={scanning}
         >
-          バーコードを読み取る
+          <Icon name="barcode" />
+          スキャン
         </button>
-        <button type="button" onClick={() => setManual(manualInitial(query))}>
+        <button
+          type="button"
+          class="button-tinted"
+          onClick={() => {
+            setSelected(undefined);
+            setManual(manualInitial(query));
+          }}
+        >
           手入力
         </button>
-      </form>
+      </div>
       {scanning && (
         <Scanner
           onIsbn={(isbn) => {
             setQuery(isbn);
-            void search('isbn', isbn);
+            void search(isbn);
           }}
           onClose={() => setScanning(false)}
         />
       )}
-      {state.kind === 'loading' && <p>検索中…</p>}
+      {state.kind === 'idle' && !manual && !scanning && (
+        <p class="footnote">
+          バーコードをスキャンするか、ISBN・タイトルで検索します。見つからない本や、ISBNのない電子書籍・オーディオブックは手入力で登録できます。
+        </p>
+      )}
+      {state.kind === 'loading' && (
+        <p class="footnote" role="status">
+          検索中…
+        </p>
+      )}
       {state.kind === 'error' && <p role="alert">{state.message}</p>}
-      {state.kind === 'done' && (
+      {state.kind === 'done' && !manual && (
         <>
-          <ul aria-label="APIごとの結果">
-            {state.attempts.map((a) => (
-              <li key={a.source}>
-                {sourceLabel[a.source]}: {outcomeLabel[a.outcome]}
-              </li>
-            ))}
-          </ul>
           {state.books.length === 0 ? (
-            <p>
-              見つかりませんでした。{' '}
+            <div class="empty">
+              <p>見つかりませんでした</p>
               <button
                 type="button"
+                class="button-plain"
                 onClick={() => setManual(manualInitial(query))}
               >
                 手入力で登録する
               </button>
-            </p>
+            </div>
           ) : (
-            <ul class="books">
+            <ul class="result-list">
               {state.books.map((b) => (
-                <BookCard key={b.isbn13 ?? b.title} book={b} onSave={save} />
+                <li key={b.isbn13 ?? `${b.title}|${b.authors.join()}`}>
+                  <button
+                    type="button"
+                    class="result"
+                    aria-pressed={selected === b}
+                    onClick={() => setSelected(selected === b ? undefined : b)}
+                  >
+                    <Cover book={b} />
+                    <span class="result-text">
+                      <strong>{b.title}</strong>
+                      <span>{b.authors.join('、') || '著者不明'}</span>
+                      <small>{bookMeta(b)}</small>
+                    </span>
+                  </button>
+                  {selected === b && (
+                    <SaveForm getBook={() => b} onSave={save} />
+                  )}
+                </li>
               ))}
             </ul>
           )}
+          <Attempts attempts={state.attempts} />
         </>
       )}
       {manual && (

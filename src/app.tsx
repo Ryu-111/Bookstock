@@ -4,6 +4,7 @@ import { Repository, openDb } from './storage/db.js';
 import { DataPanel } from './ui/data.js';
 import { RecordPage } from './ui/record-page.js';
 import type { RecordActions } from './ui/record-page.js';
+import { Icon } from './ui/ios.js';
 import { href, parseRoute } from './ui/route.js';
 import type { Route } from './ui/route.js';
 import { Search } from './ui/search.js';
@@ -40,11 +41,11 @@ function useRoute(): Route {
   return route;
 }
 
-const NAV: [Route['page'], string][] = [
-  ['shelf', '本棚'],
-  ['add', '登録'],
-  ['settings', '設定'],
-];
+const TABS = [
+  ['shelf', '本棚', 'shelf'],
+  ['add', '登録', 'add'],
+  ['settings', '設定', 'settings'],
+] as const;
 
 export function App() {
   const route = useRoute();
@@ -73,29 +74,24 @@ export function App() {
       );
   }, []);
 
-  const header = (
-    <header class="nav">
-      <a href={href({ page: 'shelf' })} class="brand">
-        Bookstock
-      </a>
-      <nav>
-        {NAV.map(([page, label]) => (
-          <a
-            key={page}
-            href={`#/${page === 'shelf' ? '' : page}`}
-            aria-current={route.page === page ? 'page' : undefined}
-          >
-            {label}
-          </a>
-        ))}
-      </nav>
-    </header>
+  const tabBar = (
+    <nav class="tab-bar" aria-label="メイン">
+      {TABS.map(([page, label, icon]) => (
+        <a
+          key={page}
+          href={href({ page })}
+          aria-current={route.page === page ? 'page' : undefined}
+        >
+          <Icon name={icon} />
+          <span>{label}</span>
+        </a>
+      ))}
+    </nav>
   );
 
   if (state.kind !== 'ready')
     return (
       <>
-        {header}
         <main>
           {state.kind === 'loading' ? (
             <p>読み込み中…</p>
@@ -103,6 +99,7 @@ export function App() {
             <p role="alert">{state.message}</p>
           )}
         </main>
+        {tabBar}
       </>
     );
 
@@ -159,7 +156,6 @@ export function App() {
 
   return (
     <>
-      {header}
       <main>
         {notice && notice.at === href(route) && (
           <p role={notice.error ? 'alert' : 'status'} class="notice">
@@ -186,6 +182,7 @@ export function App() {
           />
         )}
       </main>
+      {tabBar}
     </>
   );
 }

@@ -1,9 +1,11 @@
 import { useState } from 'preact/hooks';
 import { FORMATS, STATUSES } from '../domain/book.js';
 import type { BookCandidate, NewRecord } from '../domain/book.js';
+import { oneOf } from '../domain/guard.js';
 import { parseRecordFields } from '../domain/manual.js';
 import type { RecordFields } from '../domain/manual.js';
-import { formatLabel, statusLabel, todayLocal } from './labels.js';
+import { Cell, Group, Segmented } from './ios.js';
+import { formatShortLabel, statusLabel, todayLocal } from './labels.js';
 
 /** 保存に成功したらtrueを返す。失敗の表示は呼び出し側が行う。 */
 export type SaveHandler = (
@@ -11,14 +13,20 @@ export type SaveHandler = (
   record: NewRecord,
 ) => Promise<boolean>;
 
+export const formatOptions = FORMATS.map(
+  (f) => [f, formatShortLabel[f]] as const,
+);
+
 /** 本に、形式・状態・日付などを付けて保存するフォーム。 */
 export function SaveForm({
   getBook,
   onSave,
+  submitLabel = '本棚に追加',
 }: {
   /** 保存の直前に本を返す。手入力の検証エラーは文の配列で返す。 */
   getBook: () => BookCandidate | string[];
   onSave: SaveHandler;
+  submitLabel?: string;
 }) {
   const [fields, setFields] = useState<RecordFields>({
     format: 'paper',
@@ -56,56 +64,66 @@ export function SaveForm({
         void onSave(checkedBook, record.value).finally(() => setSaving(false));
       }}
     >
-      <select aria-label="形式" value={fields.format} onChange={set('format')}>
-        {FORMATS.map((f) => (
-          <option key={f} value={f}>
-            {formatLabel[f]}
-          </option>
-        ))}
-      </select>
-      <select aria-label="状態" value={fields.status} onChange={set('status')}>
-        {STATUSES.map((s) => (
-          <option key={s} value={s}>
-            {statusLabel[s]}
-          </option>
-        ))}
-      </select>
-      {needsDate && (
-        <label>
-          {fields.status === 'finished' ? '読了日' : '開始日'}
-          <input type="date" value={fields.date} onInput={set('date')} />
-        </label>
-      )}
-      {fields.format !== 'paper' && (
-        <input
-          aria-label="サービス"
-          placeholder={
-            fields.format === 'audiobook' ? 'Audibleなど' : 'Kindleなど'
-          }
-          value={fields.platform}
-          onInput={set('platform')}
-        />
-      )}
-      {fields.format === 'audiobook' && (
-        <label>
-          長さ（分）
-          <input
-            inputMode="numeric"
-            value={fields.totalMinutes}
-            onInput={set('totalMinutes')}
+      <Group>
+        <Cell label="形式" control={false}>
+          <Segmented
+            label="形式"
+            options={formatOptions}
+            value={oneOf(FORMATS, fields.format) ?? 'paper'}
+            onChange={(format) => setFields({ ...fields, format })}
           />
-        </label>
-      )}
-      <button type="submit" disabled={saving}>
-        保存
-      </button>
+        </Cell>
+        <Cell label="状態">
+          <select
+            aria-label="状態"
+            value={fields.status}
+            onChange={set('status')}
+          >
+            {STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {statusLabel[s]}
+              </option>
+            ))}
+          </select>
+        </Cell>
+        {needsDate && (
+          <Cell label={fields.status === 'finished' ? '読了日' : '開始日'}>
+            <input type="date" value={fields.date} onInput={set('date')} />
+          </Cell>
+        )}
+        {fields.format !== 'paper' && (
+          <Cell label="サービス">
+            <input
+              aria-label="サービス"
+              placeholder={
+                fields.format === 'audiobook' ? 'Audibleなど' : 'Kindleなど'
+              }
+              value={fields.platform}
+              onInput={set('platform')}
+            />
+          </Cell>
+        )}
+        {fields.format === 'audiobook' && (
+          <Cell label="長さ（分）">
+            <input
+              inputMode="numeric"
+              placeholder="任意"
+              value={fields.totalMinutes}
+              onInput={set('totalMinutes')}
+            />
+          </Cell>
+        )}
+      </Group>
       {errors.length > 0 && (
-        <ul role="alert">
+        <ul role="alert" class="errors">
           {errors.map((m) => (
             <li key={m}>{m}</li>
           ))}
         </ul>
       )}
+      <button type="submit" class="button-filled" disabled={saving}>
+        {submitLabel}
+      </button>
     </form>
   );
 }

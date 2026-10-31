@@ -42,7 +42,9 @@ export function Scanner({
 
   return (
     <section aria-label="バーコード読み取り" class="scanner">
-      <p>本の裏表紙の、978または979で始まるバーコードを枠に入れてください。</p>
+      <p class="footnote">
+        裏表紙の、978・979で始まるバーコードを映してください
+      </p>
       <video ref={video} playsInline muted autoPlay width={320} />
       {engine && (
         <small>
@@ -50,7 +52,7 @@ export function Scanner({
         </small>
       )}
       {error && <p role="alert">{error}</p>}
-      <button type="button" onClick={onClose}>
+      <button type="button" class="button-plain" onClick={onClose}>
         閉じる
       </button>
     </section>

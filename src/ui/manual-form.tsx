@@ -1,16 +1,17 @@
 import { useState } from 'preact/hooks';
 import { parseManualBook } from '../domain/manual.js';
 import type { ManualFields } from '../domain/manual.js';
+import { Cell, Group } from './ios.js';
 import { SaveForm } from './save-form.js';
 import type { SaveHandler } from './save-form.js';
 
-const fieldLabels: [keyof ManualFields, string, string?][] = [
-  ['title', 'タイトル（必須）'],
+const fieldLabels: [keyof ManualFields, string, string, string?][] = [
+  ['title', 'タイトル', '必須'],
   ['authors', '著者', '「、」で区切る'],
-  ['publisher', '出版社'],
+  ['publisher', '出版社', '任意'],
   ['publishedDate', '出版日', '2024-03'],
-  ['pageCount', 'ページ数'],
-  ['isbn', 'ISBN', '電子書籍・オーディオブックは空欄でよい'],
+  ['pageCount', 'ページ数', '任意', 'numeric'],
+  ['isbn', 'ISBN', '電子・オーディオは空欄可', 'numeric'],
 ];
 
 /** 本の情報の入力欄（登録と編集で共通）。 */
@@ -22,20 +23,20 @@ export function BookFields({
   onChange: (fields: ManualFields) => void;
 }) {
   return (
-    <>
-      {fieldLabels.map(([key, label, placeholder]) => (
-        <label key={key} class="field">
-          {label}
+    <Group header="本の情報">
+      {fieldLabels.map(([key, label, placeholder, inputMode]) => (
+        <Cell key={key} label={label}>
           <input
             value={fields[key]}
             placeholder={placeholder}
+            inputMode={inputMode === 'numeric' ? 'numeric' : undefined}
             onInput={(e) =>
               onChange({ ...fields, [key]: e.currentTarget.value })
             }
           />
-        </label>
+        </Cell>
       ))}
-    </>
+    </Group>
   );
 }
 
@@ -49,8 +50,7 @@ export function ManualForm({
 }) {
   const [fields, setFields] = useState(initial);
   return (
-    <section aria-label="手入力で登録" class="card">
-      <h3>手入力で登録</h3>
+    <section aria-label="手入力で登録">
       <BookFields fields={fields} onChange={setFields} />
       <SaveForm
         getBook={() => {

@@ -6,6 +6,7 @@ import type {
   NewRecord,
   ReadingRecord,
 } from '../domain/book.js';
+import { oneOf } from '../domain/guard.js';
 import {
   applyBookEdit,
   bookToFields,
@@ -19,10 +20,11 @@ import type {
   RecordEditFields,
 } from '../domain/manual.js';
 import { Cover } from './cover.js';
+import { Cell, Group, Icon, Segmented, Stars } from './ios.js';
 import { formatLabel, sourceLabel, statusLabel, todayLocal } from './labels.js';
 import { BookFields } from './manual-form.js';
 import { href } from './route.js';
-import { SaveForm } from './save-form.js';
+import { SaveForm, formatOptions } from './save-form.js';
 
 /** 成功したらtrueを返す操作。失敗の表示はApp側で行う。 */
 export type Action<T> = (value: T) => Promise<boolean>;
@@ -53,7 +55,6 @@ function BookInfo({ book, actions }: { book: Book; actions: RecordActions }) {
   if (editing)
     return (
       <form
-        class="card"
         aria-label="本の情報を編集"
         onSubmit={(e) => {
           e.preventDefault();
@@ -67,38 +68,43 @@ function BookInfo({ book, actions }: { book: Book; actions: RecordActions }) {
       >
         <BookFields fields={editing} onChange={setEditing} />
         <Errors errors={errors} />
-        <div class="row">
-          <button type="submit">本の情報を保存</button>
-          <button type="button" onClick={() => setEditing(undefined)}>
-            やめる
+        <div class="action-row">
+          <button
+            type="button"
+            class="button-tinted"
+            onClick={() => setEditing(undefined)}
+          >
+            キャンセル
+          </button>
+          <button type="submit" class="button-filled">
+            完了
           </button>
         </div>
       </form>
     );
+  const meta = [
+    book.publisher,
+    book.publishedDate,
+    book.pageCount && `${book.pageCount}ページ`,
+  ].filter(Boolean);
   return (
-    <div class="book-info">
+    <header class="book-hero">
       <Cover book={book} />
-      <div>
-        <h2>{book.title}</h2>
-        <p>{book.authors.join('、') || '著者不明'}</p>
-        <small>
-          {[
-            book.publisher,
-            book.publishedDate,
-            book.pageCount && `${book.pageCount}ページ`,
-            book.isbn13 && `ISBN ${book.isbn13}`,
-            `出典: ${sourceLabel[book.source]}`,
-          ]
-            .filter(Boolean)
-            .join(' / ')}
-        </small>
-        <div>
-          <button type="button" onClick={() => setEditing(bookToFields(book))}>
-            本の情報を編集
-          </button>
-        </div>
-      </div>
-    </div>
+      <h1>{book.title}</h1>
+      <p class="secondary">{book.authors.join('、') || '著者不明'}</p>
+      {meta.length > 0 && <p class="footnote">{meta.join(' · ')}</p>}
+      <p class="footnote">
+        {book.isbn13 && `ISBN ${book.isbn13} · `}出典:{' '}
+        {sourceLabel[book.source]}
+      </p>
+      <button
+        type="button"
+        class="button-plain"
+        onClick={() => setEditing(bookToFields(book))}
+      >
+        本の情報を編集
+      </button>
+    </header>
   );
 }
 
@@ -114,26 +120,28 @@ function RecordForm({
   );
   const [errors, setErrors] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
-  const set =
+  const update = (patch: Partial<RecordEditFields>) => {
+    const next = { ...fields, ...patch };
+    if (patch.status === 'finished' && !next.finishedAt)
+      next.finishedAt = todayLocal();
+    setFields(next);
+    setSaved(false);
+  };
+  const input =
     (key: keyof RecordEditFields) =>
     (e: Event): void => {
       const t = e.currentTarget;
-      if (!(
+      if (
         t instanceof HTMLInputElement ||
         t instanceof HTMLSelectElement ||
         t instanceof HTMLTextAreaElement
-      ))
-        return;
-      const next = { ...fields, [key]: t.value };
-      if (key === 'status' && t.value === 'finished' && !next.finishedAt)
-        next.finishedAt = todayLocal();
-      setFields(next);
-      setSaved(false);
+      )
+        update({ [key]: t.value });
     };
+  const format = oneOf(FORMATS, fields.format) ?? 'paper';
 
   return (
     <form
-      class="card"
       aria-label="記録を編集"
       onSubmit={(e) => {
         e.preventDefault();
@@ -143,88 +151,88 @@ function RecordForm({
           void actions.updateRecord(result.value).then((ok) => setSaved(ok));
       }}
     >
-      <div class="row">
-        <label class="field">
-          形式
-          <select value={fields.format} onChange={set('format')}>
-            {FORMATS.map((f) => (
-              <option key={f} value={f}>
-                {formatLabel[f]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label class="field">
-          状態
-          <select value={fields.status} onChange={set('status')}>
+      <Group header="記録">
+        <Cell label="形式" control={false}>
+          <Segmented
+            label="形式"
+            options={formatOptions}
+            value={format}
+            onChange={(f) => update({ format: f })}
+          />
+        </Cell>
+        <Cell label="状態">
+          <select value={fields.status} onChange={input('status')}>
             {STATUSES.map((s) => (
               <option key={s} value={s}>
                 {statusLabel[s]}
               </option>
             ))}
           </select>
-        </label>
-        <label class="field">
-          評価
-          <select value={fields.rating} onChange={set('rating')}>
-            <option value="">なし</option>
-            {[1, 2, 3, 4, 5].map((n) => (
-              <option key={n} value={String(n)}>
-                {'★'.repeat(n)}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <div class="row">
-        <label class="field">
-          開始日
+        </Cell>
+        <Cell label="評価" control={false}>
+          <Stars
+            value={fields.rating}
+            onChange={(rating) => update({ rating })}
+          />
+        </Cell>
+        <Cell label="開始日">
           <input
             type="date"
             value={fields.startedAt}
-            onInput={set('startedAt')}
+            onInput={input('startedAt')}
           />
-        </label>
-        <label class="field">
-          読了日
+        </Cell>
+        <Cell label="読了日">
           <input
             type="date"
             value={fields.finishedAt}
-            onInput={set('finishedAt')}
+            onInput={input('finishedAt')}
           />
-        </label>
-      </div>
-      {fields.format !== 'paper' && (
-        <div class="row">
-          <label class="field">
-            サービス
-            <input value={fields.platform} onInput={set('platform')} />
-          </label>
-          {fields.format === 'audiobook' && (
-            <label class="field">
-              長さ（分）
-              <input
-                inputMode="numeric"
-                value={fields.totalMinutes}
-                onInput={set('totalMinutes')}
-              />
-            </label>
-          )}
-        </div>
-      )}
-      <label class="field">
-        タグ（「、」区切り）
-        <input value={fields.tags} onInput={set('tags')} />
-      </label>
-      <label class="field">
-        メモ
-        <textarea rows={4} value={fields.memo} onInput={set('memo')} />
-      </label>
+        </Cell>
+        {format !== 'paper' && (
+          <Cell label="サービス">
+            <input
+              placeholder={
+                format === 'audiobook' ? 'Audibleなど' : 'Kindleなど'
+              }
+              value={fields.platform}
+              onInput={input('platform')}
+            />
+          </Cell>
+        )}
+        {format === 'audiobook' && (
+          <Cell label="長さ（分）">
+            <input
+              inputMode="numeric"
+              placeholder="任意"
+              value={fields.totalMinutes}
+              onInput={input('totalMinutes')}
+            />
+          </Cell>
+        )}
+        <Cell label="タグ">
+          <input
+            placeholder="「、」で区切る"
+            value={fields.tags}
+            onInput={input('tags')}
+          />
+        </Cell>
+      </Group>
+      <Group header="メモ">
+        <Cell stacked>
+          <textarea
+            aria-label="メモ"
+            rows={4}
+            placeholder="感想・引用など"
+            value={fields.memo}
+            onInput={input('memo')}
+          />
+        </Cell>
+      </Group>
       <Errors errors={errors} />
-      <div class="row">
-        <button type="submit">記録を保存</button>
-        {saved && <span role="status">保存しました</span>}
-      </div>
+      <button type="submit" class="button-filled">
+        {saved ? '保存しました' : '保存'}
+      </button>
     </form>
   );
 }
@@ -251,59 +259,61 @@ function Logs({
   );
 
   return (
-    <section class="card" aria-label="進捗">
-      <h3>
-        進捗（合計 {total}
-        {unit}）
-      </h3>
-      <form
-        class="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const result = parseLogFields(fields, record.format);
-          setErrors(result.ok ? [] : result.errors);
-          if (result.ok)
-            void actions.addLog(record.id, result.value).then((ok) => {
-              if (ok) setFields({ ...fields, amount: '' });
-            });
-        }}
-      >
-        <input
-          type="date"
-          aria-label="日付"
-          value={fields.date}
-          onInput={(e) => setFields({ ...fields, date: e.currentTarget.value })}
-        />
-        <input
-          inputMode="numeric"
-          aria-label={audio ? '聴いた分' : '読んだページ数'}
-          placeholder={unit}
-          value={fields.amount}
-          onInput={(e) =>
-            setFields({ ...fields, amount: e.currentTarget.value })
-          }
-        />
-        <button type="submit">追加</button>
-      </form>
+    <form
+      aria-label="進捗"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const result = parseLogFields(fields, record.format);
+        setErrors(result.ok ? [] : result.errors);
+        if (result.ok)
+          void actions.addLog(record.id, result.value).then((ok) => {
+            if (ok) setFields({ ...fields, amount: '' });
+          });
+      }}
+    >
+      <Group header={`進捗 · 合計 ${total}${unit}`}>
+        <div class="cell log-input">
+          <input
+            type="date"
+            aria-label="日付"
+            value={fields.date}
+            onInput={(e) =>
+              setFields({ ...fields, date: e.currentTarget.value })
+            }
+          />
+          <input
+            inputMode="numeric"
+            aria-label={audio ? '聴いた分' : '読んだページ数'}
+            placeholder={unit}
+            value={fields.amount}
+            onInput={(e) =>
+              setFields({ ...fields, amount: e.currentTarget.value })
+            }
+          />
+          <button type="submit" class="button-plain">
+            追加
+          </button>
+        </div>
+        {logs.map((l) => (
+          <div class="cell" key={l.id}>
+            <span class="cell-label">{l.date}</span>
+            <span class="cell-value">
+              {(audio ? l.minutes : l.pages) ?? 0}
+              {unit}
+            </span>
+            <button
+              type="button"
+              class="button-plain destructive"
+              aria-label={`${l.date}の進捗を削除`}
+              onClick={() => void actions.deleteLog(l.id)}
+            >
+              削除
+            </button>
+          </div>
+        ))}
+      </Group>
       <Errors errors={errors} />
-      {logs.length > 0 && (
-        <ul class="logs">
-          {logs.map((l) => (
-            <li key={l.id}>
-              {l.date}: {(audio ? l.minutes : l.pages) ?? 0}
-              {unit}{' '}
-              <button
-                type="button"
-                aria-label={`${l.date}の進捗を削除`}
-                onClick={() => void actions.deleteLog(l.id)}
-              >
-                削除
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+    </form>
   );
 }
 
@@ -319,11 +329,18 @@ export function RecordPage({
   const record = data.records.find((r) => r.id === id);
   const book = record && data.books.find((b) => b.id === record.bookId);
   const [addingFormat, setAddingFormat] = useState(false);
+  const back = (
+    <a class="back" href={href({ page: 'shelf' })}>
+      <span aria-hidden="true">‹</span> 本棚
+    </a>
+  );
   if (!record || !book)
     return (
       <section>
-        <h2>記録が見つかりません</h2>
-        <a href={href({ page: 'shelf' })}>本棚へ戻る</a>
+        {back}
+        <div class="empty">
+          <h1>記録が見つかりません</h1>
+        </div>
       </section>
     );
   const siblings = data.records.filter(
@@ -332,36 +349,43 @@ export function RecordPage({
 
   return (
     <section>
+      {back}
       <BookInfo key={book.id} book={book} actions={actions} />
       <RecordForm key={record.id} record={record} actions={actions} />
       <Logs record={record} data={data} actions={actions} />
-      <section class="card" aria-label="この本のほかの記録">
-        <h3>この本のほかの記録</h3>
-        {siblings.length > 0 && (
-          <ul>
-            {siblings.map((r) => (
-              <li key={r.id}>
-                <a href={href({ page: 'record', id: r.id })}>
-                  {formatLabel[r.format]}・{statusLabel[r.status]}
-                </a>
-              </li>
-            ))}
-          </ul>
-        )}
-        {addingFormat ? (
-          <SaveForm
-            getBook={() => book}
-            onSave={(_book, input) => actions.addRecordForBook(book.id, input)}
-          />
-        ) : (
-          <button type="button" onClick={() => setAddingFormat(true)}>
+      <Group header="この本のほかの記録" label="この本のほかの記録">
+        {siblings.map((r) => (
+          <a
+            key={r.id}
+            class="cell cell-link"
+            href={href({ page: 'record', id: r.id })}
+          >
+            <span class="cell-label">{formatLabel[r.format]}</span>
+            <span class="cell-value">{statusLabel[r.status]}</span>
+            <Icon name="chevron" />
+          </a>
+        ))}
+        {!addingFormat && (
+          <button
+            type="button"
+            class="cell cell-button"
+            onClick={() => setAddingFormat(true)}
+          >
             この本を別の形式で記録
           </button>
         )}
-      </section>
-      <div class="danger">
+      </Group>
+      {addingFormat && (
+        <SaveForm
+          getBook={() => book}
+          submitLabel="記録を追加"
+          onSave={(_book, input) => actions.addRecordForBook(book.id, input)}
+        />
+      )}
+      <Group>
         <button
           type="button"
+          class="cell cell-button destructive"
           onClick={() => {
             if (window.confirm(`「${book.title}」のこの記録を削除しますか？`))
               void actions.deleteRecord(record.id);
@@ -369,7 +393,7 @@ export function RecordPage({
         >
           この記録を削除
         </button>
-      </div>
+      </Group>
     </section>
   );
 }
