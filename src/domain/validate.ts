@@ -90,6 +90,7 @@ export function validateBook(value: unknown, path: string): Validation<Book> {
     isbn13,
     asin: c.optString('asin'),
     title: c.string('title'),
+    titleKana: c.optString('titleKana'),
     authors: c.strings('authors'),
     publisher: c.optString('publisher'),
     publishedDate: c.optString('publishedDate', PUB_DATE),

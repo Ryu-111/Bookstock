@@ -2,7 +2,7 @@ export type FetchFailure = 'timeout' | 'network' | 'http' | 'quota';
 
 export type FetchResult =
   | { ok: true; status: number; text: string }
-  | { ok: false; reason: FetchFailure; status?: number };
+  | { ok: false; reason: FetchFailure; status?: number; body?: string };
 
 export type FetchLike = (
   url: string,
@@ -23,10 +23,16 @@ export async function fetchText(
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(url, { signal });
-    if (response.status === 429)
-      return { ok: false, reason: 'quota', status: 429 };
-    if (!response.ok)
-      return { ok: false, reason: 'http', status: response.status };
+    if (!response.ok) {
+      // エラーの理由がJSONで返るAPI（楽天など）のために本文も渡す。
+      const body = await response.text().catch(() => '');
+      return {
+        ok: false,
+        reason: response.status === 429 ? 'quota' : 'http',
+        status: response.status,
+        body,
+      };
+    }
     return { ok: true, status: response.status, text: await response.text() };
   } catch {
     if (signal.aborted) return { ok: false, reason: 'timeout' };

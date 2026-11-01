@@ -5,6 +5,7 @@ import { emptyManualFields } from '../domain/manual.js';
 import type { ManualFields } from '../domain/manual.js';
 import { lookupIsbn, searchTitle } from '../lookup/index.js';
 import type { Attempt, LookupDeps } from '../lookup/index.js';
+import type { RakutenConfig } from '../lookup/rakuten.js';
 import { browserXmlParser } from '../lookup/ndl.js';
 import { Cover } from './cover.js';
 import { Icon } from './ios.js';
@@ -15,11 +16,6 @@ import type { SaveHandler } from './save-form.js';
 import { Scanner } from './scanner.js';
 
 export type { SaveHandler } from './save-form.js';
-
-const deps: LookupDeps = {
-  fetch: (url, init) => window.fetch(url, init),
-  parseXml: browserXmlParser,
-};
 
 type State =
   | { kind: 'idle' }
@@ -41,7 +37,10 @@ function Attempts({ attempts }: { attempts: Attempt[] }) {
   return (
     <p class="footnote" aria-label="APIごとの結果">
       {attempts
-        .map((a) => `${sourceLabel[a.source]}: ${outcomeLabel[a.outcome]}`)
+        .map(
+          (a) =>
+            `${sourceLabel[a.source]}: ${outcomeLabel[a.outcome]}${a.detail ? `（${a.detail}）` : ''}`,
+        )
         .join(' / ')}
     </p>
   );
@@ -55,7 +54,18 @@ function manualInitial(query: string): ManualFields {
     : { ...emptyManualFields, title: query.trim() };
 }
 
-export function Search({ onSave }: { onSave: SaveHandler }) {
+export function Search({
+  onSave,
+  rakuten,
+}: {
+  onSave: SaveHandler;
+  rakuten: RakutenConfig | null;
+}) {
+  const deps: LookupDeps = {
+    fetch: (url, init) => window.fetch(url, init),
+    parseXml: browserXmlParser,
+    rakuten,
+  };
   const [query, setQuery] = useState('');
   const [state, setState] = useState<State>({ kind: 'idle' });
   const [scanning, setScanning] = useState(false);

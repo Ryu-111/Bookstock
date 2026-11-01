@@ -4,7 +4,7 @@ import type { ExportFile } from '../domain/book.js';
 import { allTags, filterRecords } from '../domain/shelf.js';
 import type { ShelfFilter } from '../domain/shelf.js';
 import { Cover } from './cover.js';
-import { Icon } from './ios.js';
+import { Icon, Segmented } from './ios.js';
 import { formatShortLabel, statusLabel } from './labels.js';
 import { href } from './route.js';
 
@@ -101,9 +101,20 @@ export function Shelf({ data }: { data: ExportFile }) {
           />
         </div>
       )}
-      <p class="footnote" aria-live="polite">
-        {items.length}冊
-      </p>
+      <div class="shelf-bar">
+        <p class="footnote" aria-live="polite">
+          {items.length}冊
+        </p>
+        <Segmented
+          label="並び順"
+          options={[
+            ['recent', '最近'],
+            ['title', 'タイトル'],
+          ]}
+          value={filter.sort ?? 'recent'}
+          onChange={(v) => choose('sort', v === 'recent' ? undefined : v)}
+        />
+      </div>
       {items.length === 0 ? (
         <div class="empty">
           <p>条件に合う本がありません</p>

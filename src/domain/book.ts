@@ -1,12 +1,14 @@
 export type Format = 'paper' | 'ebook' | 'audiobook';
 export type Status = 'want' | 'stacked' | 'reading' | 'finished' | 'dropped';
-export type BookSource = 'openbd' | 'ndl' | 'google' | 'manual';
+export type BookSource = 'rakuten' | 'openbd' | 'ndl' | 'google' | 'manual';
 
 export interface Book {
   id: string;
   isbn13?: string;
   asin?: string;
   title: string;
+  /** 読み仮名（楽天ブックスAPIなどから）。並び替えと検索に使う */
+  titleKana?: string;
   authors: string[];
   publisher?: string;
   /** YYYY / YYYY-MM / YYYY-MM-DD */
@@ -30,6 +32,7 @@ export const STATUSES: readonly Status[] = [
   'dropped',
 ];
 export const BOOK_SOURCES: readonly BookSource[] = [
+  'rakuten',
   'openbd',
   'ndl',
   'google',

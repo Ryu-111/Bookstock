@@ -330,6 +330,7 @@ textarea::placeholder {
   align-items: stretch;
 }
 
+.cell-stacked input,
 .cell-stacked textarea {
   width: 100%;
   resize: vertical;
@@ -451,6 +452,18 @@ textarea::placeholder {
 }
 
 /* ---- 本棚 ---- */
+.shelf-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.shelf-bar .segmented {
+  flex: none;
+  width: 160px;
+}
+
 .shelf {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));

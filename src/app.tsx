@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { ExportFile } from './domain/book.js';
 import { Repository, openDb } from './storage/db.js';
+import type { RakutenConfig } from './lookup/rakuten.js';
+import {
+  browserStorage,
+  loadRakutenConfig,
+  saveRakutenConfig,
+} from './storage/settings.js';
 import { DataPanel } from './ui/data.js';
+import { RakutenSettings } from './ui/rakuten-settings.js';
 import { RecordPage } from './ui/record-page.js';
 import type { RecordActions } from './ui/record-page.js';
 import { Icon } from './ui/ios.js';
@@ -50,6 +57,9 @@ const TABS = [
 export function App() {
   const route = useRoute();
   const [state, setState] = useState<State>({ kind: 'loading' });
+  const [rakuten, setRakuten] = useState<RakutenConfig | null>(() =>
+    loadRakutenConfig(browserStorage()),
+  );
   /** 通知は出した画面でだけ表示する（atはその画面のhash）。 */
   const [notice, setNotice] = useState<{
     text: string;
@@ -163,7 +173,7 @@ export function App() {
           </p>
         )}
         {route.page === 'shelf' && <Shelf data={state.data} />}
-        {route.page === 'add' && <Search onSave={onSave} />}
+        {route.page === 'add' && <Search onSave={onSave} rakuten={rakuten} />}
         {route.page === 'record' && (
           <RecordPage
             key={route.id}
@@ -173,13 +183,23 @@ export function App() {
           />
         )}
         {route.page === 'settings' && (
-          <DataPanel
-            data={state.data}
-            onImport={async (file, mode) => {
-              await repo.importFile(file, mode);
-              setState({ kind: 'ready', repo, data: await repo.snapshot() });
-            }}
-          />
+          <>
+            <DataPanel
+              data={state.data}
+              onImport={async (file, mode) => {
+                await repo.importFile(file, mode);
+                setState({ kind: 'ready', repo, data: await repo.snapshot() });
+              }}
+            />
+            <RakutenSettings
+              config={rakuten}
+              onChange={(config) => {
+                const ok = saveRakutenConfig(browserStorage(), config);
+                if (ok) setRakuten(config);
+                return ok;
+              }}
+            />
+          </>
         )}
       </main>
       {tabBar}
