@@ -4,6 +4,7 @@ import type { ReadingRecord } from '../src/domain/book.js';
 import {
   applyBookEdit,
   bookToFields,
+  changeFormat,
   emptyManualFields,
   parseLogFields,
   parseManualBook,
@@ -237,4 +238,36 @@ await test('applyBookEdit: idと書影・分類を引き継ぎ、sourceは手入
     applyBookEdit(book, { ...bookToFields(book), title: '' }).ok,
     false,
   );
+});
+
+await test('changeFormat: 紙はサービスと長さを外し、オーディオ以外は長さを外す', () => {
+  const audio: ReadingRecord = { ...current };
+  assert.deepEqual(changeFormat(audio, 'paper'), {
+    id: 'r',
+    bookId: 'b',
+    format: 'paper',
+    status: 'reading',
+    tags: ['小説'],
+    createdAt: current.createdAt,
+    updatedAt: current.updatedAt,
+  });
+  const ebook = changeFormat(audio, 'ebook', 'Kindle');
+  assert.equal(ebook.platform, 'Kindle');
+  assert.equal(ebook.totalMinutes, undefined);
+  assert.equal(changeFormat(audio, 'ebook').platform, 'Audible'); // 空なら今の値を残す
+  const paper: ReadingRecord = {
+    id: 'r',
+    bookId: 'b',
+    format: 'paper',
+    status: 'reading',
+    tags: [],
+    createdAt: current.createdAt,
+    updatedAt: current.updatedAt,
+  };
+  assert.deepEqual(changeFormat(paper, 'audiobook', ' Audible '), {
+    ...paper,
+    format: 'audiobook',
+    platform: 'Audible',
+  });
+  assert.equal(changeFormat(audio, 'audiobook').totalMinutes, 600);
 });

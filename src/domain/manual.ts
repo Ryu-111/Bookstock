@@ -249,3 +249,21 @@ export function parseLogFields(
         : { date: fields.date, pages: amount },
   };
 }
+
+/**
+ * 記録の形式を変える（一括変更で使う）。
+ * 紙ならサービスと長さを外し、オーディオ以外なら長さを外す。サービスの指定がなければ今の値を残す。
+ */
+export function changeFormat(
+  record: ReadingRecord,
+  format: Format,
+  platform?: string,
+): ReadingRecord {
+  const { platform: currentPlatform, totalMinutes, ...rest } = record;
+  const next: ReadingRecord = { ...rest, format };
+  const service = text(platform) ?? currentPlatform;
+  if (format !== 'paper' && service) next.platform = service;
+  if (format === 'audiobook' && totalMinutes !== undefined)
+    next.totalMinutes = totalMinutes;
+  return next;
+}

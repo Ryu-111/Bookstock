@@ -335,3 +335,38 @@ await test('addLog / deleteLog: 進捗を足して消せる。存在しない記
   await r.deleteLog(log.id);
   assert.deepEqual((await r.snapshot()).logs, []);
 });
+
+await test('changeFormat: 複数件の形式をまとめて変え、存在しないidがあれば何も書かない', async () => {
+  const r = await repo();
+  const a = await r.addRecord(candidate, {
+    format: 'paper',
+    status: 'finished',
+    finishedAt: '2026-10-01',
+  });
+  const b = await r.addRecord(
+    { title: '別の本', authors: [], source: 'manual' },
+    { format: 'ebook', status: 'reading', platform: 'Kindle' },
+  );
+  assert.equal(
+    await r.changeFormat(
+      [a.record.id, b.record.id, a.record.id],
+      'audiobook',
+      'Audible',
+    ),
+    2,
+  );
+  let data = await r.snapshot();
+  assert.deepEqual(
+    data.records.map((x) => [x.format, x.platform]),
+    [
+      ['audiobook', 'Audible'],
+      ['audiobook', 'Audible'],
+    ],
+  );
+  await assert.rejects(
+    r.changeFormat([a.record.id, 'missing'], 'paper'),
+    /見つかりません/,
+  );
+  data = await r.snapshot();
+  assert.equal(data.records[0]?.format, 'audiobook');
+});

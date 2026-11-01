@@ -3,6 +3,7 @@ export type Route =
   | { page: 'add' }
   | { page: 'record'; id: string }
   | { page: 'stats' }
+  | { page: 'recommend' }
   | { page: 'settings' };
 
 /** location.hash を画面にする。知らない形は本棚にする。 */
@@ -11,6 +12,7 @@ export function parseRoute(hash: string): Route {
   if (path === '/add') return { page: 'add' };
   if (path === '/settings') return { page: 'settings' };
   if (path === '/stats') return { page: 'stats' };
+  if (path === '/recommend') return { page: 'recommend' };
   const match = /^\/records\/([^/]+)$/.exec(path);
   if (match?.[1]) {
     try {
@@ -33,6 +35,8 @@ export function href(route: Route): string {
       return '#/settings';
     case 'stats':
       return '#/stats';
+    case 'recommend':
+      return '#/recommend';
     case 'record':
       return `#/records/${encodeURIComponent(route.id)}`;
   }
