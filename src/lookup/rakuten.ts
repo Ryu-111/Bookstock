@@ -9,16 +9,20 @@ import {
 import { toIsbn13 } from '../domain/isbn.js';
 
 /**
- * 楽天ブックス書籍検索API。
- * 公式ドキュメントにある旧エンドポイント。2026年にドメイン・認証（accessKey）が
- * 変わったという報告があるため、設定画面でURLを差し替えられるようにしている。
+ * 楽天ブックス書籍検索API。2026年2月の移行で接続先が openapi.rakuten.co.jp になり、
+ * UUID形式の applicationId と accessKey の両方が必要になった（複数の開発者の報告。
+ * 公式ページは開発環境から未確認）。違っていれば設定画面でURLを差し替えられる。
  */
 export const DEFAULT_RAKUTEN_ENDPOINT =
+  'https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404';
+
+/** 移行前の旧URL。保存済みの設定にあれば新しいURLに読み替える。 */
+export const LEGACY_RAKUTEN_ENDPOINT =
   'https://app.rakuten.co.jp/services/api/BooksBook/Search/20170404';
 
 export interface RakutenConfig {
   applicationId: string;
-  /** 2026年以降のIDで必要とされる。旧IDなら空でよい。 */
+  /** 2026年以降のIDでは必須。 */
   accessKey?: string;
   endpoint: string;
 }
@@ -46,7 +50,11 @@ export function parseRakutenConfig(value: unknown): RakutenConfig | null {
   if (!isObject(value)) return null;
   const applicationId = text(value.applicationId);
   const accessKey = text(value.accessKey);
-  const endpoint = text(value.endpoint) ?? DEFAULT_RAKUTEN_ENDPOINT;
+  const saved = text(value.endpoint);
+  const endpoint =
+    !saved || saved === LEGACY_RAKUTEN_ENDPOINT
+      ? DEFAULT_RAKUTEN_ENDPOINT
+      : saved;
   if (!applicationId || !ID.test(applicationId)) return null;
   if (accessKey !== undefined && !ID.test(accessKey)) return null;
   if (!isRakutenEndpoint(endpoint)) return null;

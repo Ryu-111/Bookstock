@@ -89,7 +89,7 @@ export function RakutenSettings({
             type="password"
             value={fields.accessKey}
             onInput={set('accessKey')}
-            placeholder="必要な場合のみ"
+            placeholder="必須"
             autoComplete="off"
           />
         </Cell>

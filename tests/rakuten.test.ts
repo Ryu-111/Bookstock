@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import {
   DEFAULT_RAKUTEN_ENDPOINT,
+  LEGACY_RAKUTEN_ENDPOINT,
   isRakutenEndpoint,
   parseRakuten,
   parseRakutenConfig,
@@ -11,6 +12,7 @@ import {
 } from '../src/lookup/rakuten.js';
 import {
   loadRakutenConfig,
+  requestPersistence,
   saveRakutenConfig,
 } from '../src/storage/settings.js';
 import type { StorageLike } from '../src/storage/settings.js';
@@ -68,6 +70,17 @@ await test('設定の検証: 楽天以外・http・クエリ付きのURLや不�
   assert.equal(
     isRakutenEndpoint('https://openapi.rakuten.co.jp/x/Search/1'),
     true,
+  );
+  // 移行前の旧URLを保存していた設定は、新しい既定のURLに読み替える
+  assert.equal(
+    parseRakutenConfig({
+      applicationId: 'a',
+      endpoint: LEGACY_RAKUTEN_ENDPOINT,
+    })?.endpoint,
+    DEFAULT_RAKUTEN_ENDPOINT,
+  );
+  assert.ok(
+    DEFAULT_RAKUTEN_ENDPOINT.startsWith('https://openapi.rakuten.co.jp/'),
   );
   for (const endpoint of [
     'http://app.rakuten.co.jp/services/api/BooksBook/Search/20170404',
@@ -161,4 +174,30 @@ await test('設定の保存・読み出し: 壊れた値・使えないストレ
   };
   assert.equal(loadRakutenConfig(throwing), null);
   assert.equal(saveRakutenConfig(throwing, config), false);
+});
+
+await test('requestPersistence: 許可・拒否・非対応・失敗を分ける', async () => {
+  assert.equal(await requestPersistence(undefined), 'unsupported');
+  assert.equal(await requestPersistence({}), 'unsupported');
+  const yes = () => Promise.resolve(true);
+  const no = () => Promise.resolve(false);
+  assert.equal(
+    await requestPersistence({ persisted: yes, persist: no }),
+    'persisted',
+  );
+  assert.equal(
+    await requestPersistence({ persisted: no, persist: yes }),
+    'persisted',
+  );
+  assert.equal(
+    await requestPersistence({ persisted: no, persist: no }),
+    'best-effort',
+  );
+  assert.equal(
+    await requestPersistence({
+      persisted: no,
+      persist: () => Promise.reject(new Error('x')),
+    }),
+    'best-effort',
+  );
 });

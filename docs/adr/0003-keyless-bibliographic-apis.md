@@ -39,5 +39,6 @@
   - 書影・出版日・読み仮名（`titleKana`）を取る。ページ数とNDCはNDLなどで補う。
 - 値はそのブラウザの `localStorage` にだけ保存し、JSONの書き出しには含めない。送り先は `https://〜.rakuten.co.jp` に限る（`src/lookup/rakuten.ts`）。
 - 2026年にエンドポイントのドメインと認証（`accessKey`）が変わったという報告があるが、開発環境からは公式ドキュメントに届かず未確認。
-  - 既定値は公式ドキュメントにあった旧URL（`app.rakuten.co.jp/services/api/BooksBook/Search/20170404`）。
+  - 既定値は `openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404`（2026-11-01更新）。旧URL（`app.rakuten.co.jp/…`）に新形式のIDを送ると `wrong_parameter: specify valid applicationId` になることを、ユーザーのブラウザで確認した。旧URLを保存した設定は新しいURLに読み替える。新URLは複数の開発者の報告による値で、公式ページは開発環境から未確認。
+  - 旧URLへのブラウザからの呼び出しはCORSで拒否されず、APIのエラー文が返った（ユーザーのブラウザで確認）。
   - 設定画面でURLを差し替えられる。接続テストは、APIのエラー文をそのまま表示する。

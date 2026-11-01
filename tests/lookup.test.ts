@@ -200,10 +200,11 @@ await test('NDL: ブラウザのparsererror文書は空配列', () => {
   );
 });
 
-const RAKUTEN = 'app.rakuten.co.jp';
+const RAKUTEN = 'openapi.rakuten.co.jp';
 const rakuten = {
   applicationId: 'app',
-  endpoint: 'https://app.rakuten.co.jp/services/api/BooksBook/Search/20170404',
+  endpoint:
+    'https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404',
 };
 
 await test('lookupIsbn: 楽天の設定があれば最初に引き、ページ数はNDLで補う', async () => {
