@@ -1,6 +1,6 @@
 # Bookstock — 読書記録アプリ
 
-最終更新: 2026-10-31（初版の設計）
+最終更新: 2026-11-01（楽天ブックスAPIを任意で追加）
 
 ## 目的
 
@@ -21,7 +21,7 @@
 - 対象外:
   - 端末間の自動同期・アカウント（将来、Gistなどで検討）。
   - SNS機能・ほかのユーザーとの共有。
-  - APIキーを要する検索サービス（楽天ブックスAPIなど）。
+  - アプリに埋め込んだAPIキーで呼ぶ検索サービス（楽天ブックスAPIは、利用者が自分のIDを設定した場合だけ使う）。
   - 電子書籍ストア・Audibleからの購入履歴の自動取り込み。
 
 ## 用語
@@ -44,6 +44,7 @@
   - openBD `https://api.openbd.jp/v1/get?isbn=`: 国内の書籍に強い。CORS可。
   - 国立国会図書館サーチ OpenSearch: ISBN・タイトルで検索できる。XMLで返る。ブラウザから直接呼べるか（CORS）は未確認。
   - Google Books `https://www.googleapis.com/books/v1/volumes`: キーなしでも呼べるが、日次の上限がある。洋書・電子書籍に強い。
+  - 楽天ブックス書籍検索API: 利用者が自分のアプリIDを設定画面に入れた場合だけ使う。書影・読み仮名に強い（ADR-0003の追記）。
 - `BarcodeDetector` はChrome（Android/デスクトップ）にあり、iOS Safariにはない（2026-10時点の認識。実装時に再確認する）。
 - カメラにはHTTPSが必要。GitHub PagesはHTTPSなので満たす。
 - 開発はjev-router（`jh`）経由で行う。jhの製品Hookは `.jh.json` を読み、Claude Codeで編集ごとのPrettierとStopの1次チェック（`npm run check`）を行う。CodexのHookは対象外なので、pre-commitとCIで担保する。

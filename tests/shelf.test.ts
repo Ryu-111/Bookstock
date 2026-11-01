@@ -69,6 +69,28 @@ await test('形式・状態・タグ・キーワードで絞り込む', () => {
   assert.deepEqual(ids({ text: '存在しない' }), []);
 });
 
+await test('読み仮名でも検索でき、タイトル順は読み仮名で並べる', () => {
+  const kana: ExportFile = {
+    ...data,
+    books: [
+      { ...data.books[0]!, titleKana: 'タイプスクリプトニュウモン' },
+      { ...data.books[1]!, titleKana: 'ゴウセイノショウセツ' },
+    ],
+  };
+  assert.deepEqual(
+    filterRecords(kana, { text: 'ごうせい' }).map((i) => i.record.id),
+    ['r2', 'r3'],
+  );
+  assert.deepEqual(
+    filterRecords(kana, { text: 'ゴウセイ' }).map((i) => i.record.id),
+    ['r2', 'r3'],
+  );
+  assert.deepEqual(
+    filterRecords(kana, { sort: 'title' }).map((i) => i.record.id),
+    ['r2', 'r3', 'r1'],
+  );
+});
+
 await test('タグはよく使う順（同数はロケール順）', () => {
   const tags = allTags(data);
   assert.equal(tags[0], '小説');

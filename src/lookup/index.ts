@@ -6,18 +6,24 @@ import type { FetchFailure, FetchLike } from './http.js';
 import { ndlIsbnUrl, ndlTitleUrl, parseNdl } from './ndl.js';
 import type { XmlParser } from './ndl.js';
 import { openbdUrl, parseOpenbd } from './openbd.js';
+import { parseRakuten, rakutenError, rakutenUrl } from './rakuten.js';
+import type { RakutenConfig } from './rakuten.js';
 
 export interface LookupDeps {
   fetch: FetchLike;
   parseXml: XmlParser;
   timeoutMs?: number;
+  /** 設定画面で楽天のIDが入力されていれば、楽天を最初に引く */
+  rakuten?: RakutenConfig | null;
 }
 
-export type Outcome = 'found' | 'not_found' | FetchFailure;
+export type Outcome = 'found' | 'not_found' | 'auth' | FetchFailure;
 export type RemoteSource = Exclude<BookSource, 'manual'>;
 export interface Attempt {
   source: RemoteSource;
   outcome: Outcome;
+  /** APIが返したエラーの説明（楽天のIDエラーなど） */
+  detail?: string;
 }
 
 interface SourceResult {
@@ -32,8 +38,20 @@ async function query(
   deps: LookupDeps,
 ): Promise<SourceResult> {
   const result = await fetchText(url, deps.fetch, deps.timeoutMs);
-  if (!result.ok)
+  if (!result.ok) {
+    if (source === 'rakuten') {
+      const detail = rakutenError(result.body);
+      const auth =
+        result.status === 400 || result.status === 401 || result.status === 403;
+      const attempt: Attempt = {
+        source,
+        outcome: auth && result.reason === 'http' ? 'auth' : result.reason,
+      };
+      if (detail) attempt.detail = detail;
+      return { books: [], attempt };
+    }
     return { books: [], attempt: { source, outcome: result.reason } };
+  }
   const books = parse(result.text);
   return {
     books,
@@ -47,6 +65,7 @@ function fill(base: BookCandidate, extra: BookCandidate): BookCandidate {
   if (merged.authors.length === 0 && extra.authors.length > 0)
     merged.authors = extra.authors;
   for (const key of [
+    'titleKana',
     'publisher',
     'publishedDate',
     'coverUrl',
@@ -67,14 +86,25 @@ export type IsbnLookup =
   | { ok: true; book: BookCandidate | null; attempts: Attempt[] }
   | { ok: false; error: 'invalid_isbn' };
 
-/** ISBNで openBD → NDL → Google の順に引き、足りない項目を後の結果で補う。 */
+type Source = [RemoteSource, string, (body: string) => BookCandidate[]];
+
+/** ISBNで（楽天 →）openBD → NDL → Google の順に引き、足りない項目を後の結果で補う。 */
 export async function lookupIsbn(
   input: string,
   deps: LookupDeps,
 ): Promise<IsbnLookup> {
   const isbn13 = toIsbn13(input);
   if (!isbn13) return { ok: false, error: 'invalid_isbn' };
-  const sources: [RemoteSource, string, (body: string) => BookCandidate[]][] = [
+  const sources: Source[] = [
+    ...(deps.rakuten
+      ? [
+          [
+            'rakuten',
+            rakutenUrl(deps.rakuten, { isbn: isbn13 }),
+            parseRakuten,
+          ] satisfies Source,
+        ]
+      : []),
     ['openbd', openbdUrl(isbn13), parseOpenbd],
     ['ndl', ndlIsbnUrl(isbn13), (body) => parseNdl(body, deps.parseXml)],
     ['google', googleIsbnUrl(isbn13), parseGoogle],
@@ -97,7 +127,7 @@ function key(book: BookCandidate): string {
   return book.isbn13 ?? `${book.title}|${book.authors.join(',')}`;
 }
 
-/** タイトルでNDLとGoogleを並行に検索し、重複をまとめる。 */
+/** タイトルで（楽天・）NDL・Googleを並行に検索し、重複をまとめる。 */
 export async function searchTitle(
   input: string,
   deps: LookupDeps,
@@ -105,6 +135,16 @@ export async function searchTitle(
   const q = input.trim();
   if (!q) return { books: [], attempts: [] };
   const results = await Promise.all([
+    ...(deps.rakuten
+      ? [
+          query(
+            'rakuten',
+            rakutenUrl(deps.rakuten, { title: q }),
+            parseRakuten,
+            deps,
+          ),
+        ]
+      : []),
     query('ndl', ndlTitleUrl(q), (body) => parseNdl(body, deps.parseXml), deps),
     query('google', googleTitleUrl(q), parseGoogle, deps),
   ]);
@@ -118,4 +158,19 @@ export async function searchTitle(
     books: [...byKey.values()],
     attempts: results.map((r) => r.attempt),
   };
+}
+
+/** 設定画面の接続テスト。楽天だけを1件引いて結果を返す。 */
+export async function testRakuten(
+  config: RakutenConfig,
+  deps: Omit<LookupDeps, 'rakuten'>,
+  isbn = '9784003101018',
+): Promise<Attempt> {
+  const result = await query(
+    'rakuten',
+    rakutenUrl(config, { isbn }),
+    parseRakuten,
+    deps,
+  );
+  return result.attempt;
 }

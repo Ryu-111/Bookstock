@@ -1,0 +1,26 @@
+{
+  "count": 2,
+  "page": 1,
+  "Items": [
+    {
+      "title": "テスト用の本",
+      "titleKana": "テストヨウノホン",
+      "subTitle": "上巻",
+      "author": "山田 太郎/鈴木 花子",
+      "authorKana": "ヤマダ タロウ/スズキ ハナコ",
+      "publisherName": "架空出版",
+      "isbn": "9784000000000",
+      "salesDate": "2024年03月15日頃",
+      "itemPrice": 990,
+      "largeImageUrl": "http://thumbnail.image.example.test/cover.jpg?_ex=200x200"
+    },
+    {
+      "Item": {
+        "title": "旧形式の本",
+        "isbn": "4003101014",
+        "salesDate": "2021年07月"
+      }
+    },
+    { "title": 42 }
+  ]
+}

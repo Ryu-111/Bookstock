@@ -330,6 +330,7 @@ textarea::placeholder {
   align-items: stretch;
 }
 
+.cell-stacked input,
 .cell-stacked textarea {
   width: 100%;
   resize: vertical;
@@ -451,6 +452,18 @@ textarea::placeholder {
 }
 
 /* ---- 本棚 ---- */
+.shelf-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.shelf-bar .segmented {
+  flex: none;
+  width: 160px;
+}
+
 .shelf {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
@@ -647,4 +660,370 @@ textarea::placeholder {
   .shelf {
     grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
   }
+}
+
+/* ---- 統計 ---- */
+/*
+ * 形式の3色。datavizの検証（validate_palette.js）を、セルの面の色
+ * （ライト #ffffff・ダーク #1c1c1e）で通した値。ライトの水色はコントラストが3:1未満のため、
+ * 凡例と表の表示を必ず付ける。
+ */
+:root {
+  --fmt-paper: #2a78d6;
+  --fmt-ebook: #1baf7a;
+  --fmt-audiobook: #6250d6;
+  --heat-0: var(--fill);
+  --heat-1: rgba(255, 149, 0, 0.3);
+  --heat-2: rgba(255, 149, 0, 0.55);
+  --heat-3: rgba(255, 149, 0, 0.8);
+  --heat-4: #ff9500;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fmt-paper: #3987e5;
+    --fmt-ebook: #199e70;
+    --fmt-audiobook: #9085e9;
+    --heat-1: rgba(255, 159, 10, 0.3);
+    --heat-2: rgba(255, 159, 10, 0.55);
+    --heat-3: rgba(255, 159, 10, 0.8);
+    --heat-4: #ff9f0a;
+  }
+}
+
+.fmt-paper {
+  fill: var(--fmt-paper);
+  background: var(--fmt-paper);
+}
+
+.fmt-ebook {
+  fill: var(--fmt-ebook);
+  background: var(--fmt-ebook);
+}
+
+.fmt-audiobook {
+  fill: var(--fmt-audiobook);
+  background: var(--fmt-audiobook);
+}
+
+.period-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 16px;
+}
+
+.period-row .segmented {
+  max-width: none;
+  margin: 0;
+}
+
+.year-select {
+  flex: none;
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 9px;
+  background: var(--fill);
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 24px;
+}
+
+@media (min-width: 600px) {
+  .tiles {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--cell);
+  min-width: 0;
+}
+
+.tile-label {
+  color: var(--secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.tile-value {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tile-value small {
+  margin-left: 2px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--secondary);
+}
+
+.tile-note {
+  color: var(--secondary);
+  font-size: 12px;
+}
+
+.card-body {
+  padding: 12px 16px;
+}
+
+.chart-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.chart-head .segmented {
+  flex: none;
+  width: 180px;
+  margin: 0;
+}
+
+.legend {
+  display: flex;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  color: var(--secondary);
+}
+
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.chart {
+  position: relative;
+  width: 100%;
+}
+
+.chart svg {
+  display: block;
+  overflow: visible;
+}
+
+.chart .grid {
+  stroke: var(--separator);
+  stroke-width: 0.5;
+}
+
+.chart .baseline {
+  stroke: var(--tertiary);
+  stroke-width: 1;
+}
+
+.chart .axis {
+  fill: var(--secondary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart .hit {
+  fill: transparent;
+  cursor: pointer;
+}
+
+.chart .dim .bar {
+  opacity: 0.35;
+}
+
+.readout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  min-height: 40px;
+  margin: 0 0 4px;
+  font-size: 13px;
+  color: var(--secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.readout strong {
+  color: var(--label);
+  font-size: 15px;
+}
+
+.readout span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.table-wrap th,
+.table-wrap td {
+  padding: 6px 4px;
+  border-bottom: 0.5px solid var(--separator);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.table-wrap th:first-child {
+  text-align: left;
+}
+
+.table-wrap thead th {
+  color: var(--secondary);
+  font-weight: 600;
+}
+
+.calendar-scroll {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.calendar-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.calendar-scroll svg {
+  display: block;
+}
+
+.day {
+  cursor: pointer;
+}
+
+.day.picked {
+  stroke: var(--label);
+  stroke-width: 1.5;
+}
+
+.lv0 {
+  fill: var(--heat-0);
+  background: var(--heat-0);
+}
+
+.lv1 {
+  fill: var(--heat-1);
+  background: var(--heat-1);
+}
+
+.lv2 {
+  fill: var(--heat-2);
+  background: var(--heat-2);
+}
+
+.lv3 {
+  fill: var(--heat-3);
+  background: var(--heat-3);
+}
+
+.lv4 {
+  fill: var(--heat-4);
+  background: var(--heat-4);
+}
+
+.calendar-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.calendar-foot .footnote {
+  margin: 8px 0 0;
+}
+
+.scale {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--secondary);
+  font-size: 12px;
+}
+
+.day-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.hbars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hbars li {
+  display: grid;
+  grid-template-columns: 5.5em minmax(0, 1fr) 3em;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+}
+
+.hbar-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hbar-track {
+  height: 10px;
+  border-radius: 5px;
+  background: var(--fill);
+  overflow: hidden;
+}
+
+.hbar {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+  background: var(--tint);
+}
+
+.hbar-value {
+  text-align: right;
+  color: var(--secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.notes {
+  margin: 0 0 24px;
+  padding-left: 20px;
+  color: var(--secondary);
+  font-size: 13px;
 }

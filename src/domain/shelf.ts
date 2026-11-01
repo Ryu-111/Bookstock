@@ -6,7 +6,11 @@ import type {
   Status,
 } from './book.js';
 
+export type ShelfSort = 'recent' | 'title';
+
 export interface ShelfFilter {
+  /** 既定は更新日の新しい順 */
+  sort?: ShelfSort;
   format?: Format;
   status?: Status;
   tag?: string;
@@ -18,12 +22,17 @@ export interface ShelfItem {
   book: Book;
 }
 
-/** 大文字小文字・全角半角の違いをそろえる。 */
+/** 大文字小文字・全角半角・ひらがなとカタカナの違いをそろえる。 */
 function fold(value: string): string {
-  return value.normalize('NFKC').toLowerCase();
+  return value
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[\u3041-\u3096]/g, (c) =>
+      String.fromCharCode(c.charCodeAt(0) + 0x60),
+    );
 }
 
-/** 本棚に出す記録を絞り込み、更新日の新しい順に並べる。 */
+/** 本棚に出す記録を絞り込み、更新日順（またはタイトル順。読み仮名があれば読みで）に並べる。 */
 export function filterRecords(
   data: ExportFile,
   filter: ShelfFilter,
@@ -40,15 +49,22 @@ export function filterRecords(
     if (filter.status && record.status !== filter.status) continue;
     if (filter.tag && !record.tags.includes(filter.tag)) continue;
     if (words.length > 0) {
-      const haystack = fold([book.title, ...book.authors].join(' '));
+      const haystack = fold(
+        [book.title, book.titleKana ?? '', ...book.authors].join(' '),
+      );
       if (!words.every((w) => haystack.includes(w))) continue;
     }
     items.push({ record, book });
   }
-  return items.sort(
-    (a, b) =>
-      b.record.updatedAt.localeCompare(a.record.updatedAt) ||
-      a.book.title.localeCompare(b.book.title, 'ja'),
+  const byTitle = (a: ShelfItem, b: ShelfItem) =>
+    (a.book.titleKana ?? a.book.title).localeCompare(
+      b.book.titleKana ?? b.book.title,
+      'ja',
+    );
+  return items.sort((a, b) =>
+    filter.sort === 'title'
+      ? byTitle(a, b) || b.record.updatedAt.localeCompare(a.record.updatedAt)
+      : b.record.updatedAt.localeCompare(a.record.updatedAt) || byTitle(a, b),
   );
 }
 

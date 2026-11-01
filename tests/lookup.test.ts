@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import { DOMParser } from '@xmldom/xmldom';
 import { fetchText } from '../src/lookup/http.js';
 import type { FetchLike } from '../src/lookup/http.js';
-import { lookupIsbn, searchTitle } from '../src/lookup/index.js';
+import { lookupIsbn, searchTitle, testRakuten } from '../src/lookup/index.js';
 import type { LookupDeps } from '../src/lookup/index.js';
 import { parseNdl } from '../src/lookup/ndl.js';
 
@@ -65,11 +65,13 @@ await test('fetchText: 成功・HTTPエラー・上限・通信失敗・タイ�
     ok: false,
     reason: 'http',
     status: 404,
+    body: '',
   });
   assert.deepEqual(await fetchText('https://c.test/', fetch, 50), {
     ok: false,
     reason: 'quota',
     status: 429,
+    body: '',
   });
   assert.deepEqual(await fetchText('https://d.test/', fetch, 50), {
     ok: false,
@@ -196,4 +198,50 @@ await test('NDL: ブラウザのparsererror文書は空配列', () => {
     parseNdl('<x', () => doc),
     [],
   );
+});
+
+const RAKUTEN = 'app.rakuten.co.jp';
+const rakuten = {
+  applicationId: 'app',
+  endpoint: 'https://app.rakuten.co.jp/services/api/BooksBook/Search/20170404',
+};
+
+await test('lookupIsbn: 楽天の設定があれば最初に引き、ページ数はNDLで補う', async () => {
+  const { fetch, calls } = stub({
+    [RAKUTEN]: { status: 200, body: fixture('rakuten.json') },
+    [OPENBD]: { status: 200, body: '[null]' },
+    [NDL]: { status: 200, body: fixture('ndl.xml') },
+  });
+  const result = await lookupIsbn('9784000000000', { ...deps(fetch), rakuten });
+  assert.ok(result.ok);
+  assert.deepEqual(calls, [RAKUTEN, OPENBD, NDL]);
+  assert.equal(result.book?.source, 'rakuten');
+  assert.equal(result.book?.titleKana, 'テストヨウノホン');
+  assert.equal(result.book?.pageCount, 318);
+  assert.equal(result.book?.ndc, '913.6');
+});
+
+await test('lookupIsbn: 楽天の設定がなければ呼ばない。IDエラーは理由付きで返す', async () => {
+  const none = stub({});
+  await lookupIsbn('9784000000000', deps(none.fetch));
+  assert.equal(none.calls.includes(RAKUTEN), false);
+
+  const bad = stub({
+    [RAKUTEN]: {
+      status: 400,
+      body: '{"error":"wrong_parameter","error_description":"specify valid applicationId"}',
+    },
+  });
+  const result = await lookupIsbn('9784000000000', {
+    ...deps(bad.fetch),
+    rakuten,
+  });
+  assert.ok(result.ok);
+  assert.deepEqual(result.attempts[0], {
+    source: 'rakuten',
+    outcome: 'auth',
+    detail: 'wrong_parameter: specify valid applicationId',
+  });
+  const t = await testRakuten(rakuten, deps(bad.fetch));
+  assert.equal(t.outcome, 'auth');
 });

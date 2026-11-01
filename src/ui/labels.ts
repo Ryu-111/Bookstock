@@ -23,6 +23,7 @@ export const statusLabel: Record<Status, string> = {
 };
 
 export const sourceLabel: Record<BookSource, string> = {
+  rakuten: '楽天ブックス',
   openbd: 'openBD',
   ndl: 'NDLサーチ',
   google: 'Google Books',
@@ -36,6 +37,7 @@ export const outcomeLabel: Record<Outcome, string> = {
   network: '通信失敗（CORS・遮断を含む）',
   http: 'HTTPエラー',
   quota: '上限',
+  auth: 'IDの設定エラー',
 };
 
 export function todayLocal(now = new Date()): string {
