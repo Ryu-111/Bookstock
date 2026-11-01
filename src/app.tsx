@@ -11,6 +11,7 @@ import {
 import type { Persistence } from './storage/settings.js';
 import { DataPanel } from './ui/data.js';
 import { RakutenSettings } from './ui/rakuten-settings.js';
+import { RecommendPage } from './ui/recommend.js';
 import { RecordPage } from './ui/record-page.js';
 import type { RecordActions } from './ui/record-page.js';
 import { Icon } from './ui/ios.js';
@@ -54,6 +55,7 @@ function useRoute(): Route {
 
 const TABS = [
   ['shelf', '本棚', 'shelf'],
+  ['recommend', 'おすすめ', 'recommend'],
   ['add', '登録', 'add'],
   ['stats', '統計', 'stats'],
   ['settings', '設定', 'settings'],
@@ -191,6 +193,18 @@ export function App() {
           />
         )}
         {route.page === 'stats' && <StatsPage data={state.data} />}
+        {route.page === 'recommend' && (
+          <RecommendPage
+            data={state.data}
+            rakuten={rakuten}
+            onSave={(book, record) =>
+              run(
+                () => repo.addRecord(book, record),
+                `「${book.title}」を本棚に追加しました`,
+              )
+            }
+          />
+        )}
         {route.page === 'add' && <Search onSave={onSave} rakuten={rakuten} />}
         {route.page === 'record' && (
           <RecordPage

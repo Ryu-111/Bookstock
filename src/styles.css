@@ -1159,3 +1159,53 @@ textarea::placeholder {
 .sheet .button-filled {
   margin-bottom: 0;
 }
+
+/* ---- おすすめ ---- */
+.rec-section {
+  margin: 0 0 24px;
+}
+
+.rec-title {
+  margin: 0 0 2px;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.rec-section > .footnote {
+  margin: 0 0 8px;
+}
+
+.rec-row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 104px;
+  gap: 12px;
+  margin: 0 calc(var(--gutter) * -1);
+  padding: 4px var(--gutter) 8px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  list-style: none;
+}
+
+.rec-row::-webkit-scrollbar {
+  display: none;
+}
+
+.rec-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  scroll-snap-align: start;
+  text-align: left;
+}
+
+.rec-item .cover {
+  margin-bottom: 4px;
+}
+
+.tab-bar a {
+  min-width: 0;
+  flex: 1;
+}

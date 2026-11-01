@@ -8,6 +8,7 @@ await test('ハッシュを画面にし、hrefで元に戻せる', () => {
   assert.deepEqual(parseRoute('#/add'), { page: 'add' });
   assert.deepEqual(parseRoute('#/settings'), { page: 'settings' });
   assert.deepEqual(parseRoute('#/stats'), { page: 'stats' });
+  assert.deepEqual(parseRoute('#/recommend'), { page: 'recommend' });
   assert.deepEqual(parseRoute('#/records/abc-1'), {
     page: 'record',
     id: 'abc-1',

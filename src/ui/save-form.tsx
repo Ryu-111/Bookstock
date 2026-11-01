@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import { FORMATS, STATUSES } from '../domain/book.js';
-import type { BookCandidate, NewRecord } from '../domain/book.js';
+import type { BookCandidate, NewRecord, Status } from '../domain/book.js';
 import { oneOf } from '../domain/guard.js';
 import { parseRecordFields } from '../domain/manual.js';
 import type { RecordFields } from '../domain/manual.js';
@@ -22,15 +22,17 @@ export function SaveForm({
   getBook,
   onSave,
   submitLabel = '本棚に追加',
+  initialStatus = 'reading',
 }: {
   /** 保存の直前に本を返す。手入力の検証エラーは文の配列で返す。 */
   getBook: () => BookCandidate | string[];
   onSave: SaveHandler;
   submitLabel?: string;
+  initialStatus?: Status;
 }) {
   const [fields, setFields] = useState<RecordFields>({
     format: 'paper',
-    status: 'reading',
+    status: initialStatus,
     platform: '',
     date: todayLocal(),
     totalMinutes: '',

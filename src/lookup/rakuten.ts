@@ -63,10 +63,21 @@ export function parseRakutenConfig(value: unknown): RakutenConfig | null {
     : { applicationId, endpoint };
 }
 
-export function rakutenUrl(
-  config: RakutenConfig,
-  query: { isbn: string } | { title: string } | { author: string },
-): string {
+/** 並び順（公式の値）。sales = 売れている順、-releaseDate = 発売日が新しい順。 */
+export type RakutenSort = 'standard' | 'sales' | '-releaseDate';
+
+export type RakutenQuery = (
+  | { isbn: string }
+  | { title: string }
+  | { author: string }
+  | { genreId: string }
+) & {
+  sort?: RakutenSort;
+  /** 下位ジャンルの一覧も返してもらう（genreInformationFlag=1） */
+  genreInfo?: boolean;
+};
+
+export function rakutenUrl(config: RakutenConfig, query: RakutenQuery): string {
   const params = new URLSearchParams({
     format: 'json',
     formatVersion: '2',
@@ -78,7 +89,10 @@ export function rakutenUrl(
   if (config.accessKey) params.set('accessKey', config.accessKey);
   if ('isbn' in query) params.set('isbn', query.isbn);
   else if ('author' in query) params.set('author', query.author);
+  else if ('genreId' in query) params.set('booksGenreId', query.genreId);
   else params.set('title', query.title);
+  if (query.sort && query.sort !== 'standard') params.set('sort', query.sort);
+  if (query.genreInfo) params.set('genreInformationFlag', '1');
   return `${config.endpoint}?${params.toString()}`;
 }
 
@@ -190,4 +204,35 @@ export function rakutenError(
       .trim()
       .slice(0, 120);
   return raw ? redact(raw, secrets).slice(0, 200) : undefined;
+}
+
+export interface RakutenGenre {
+  id: string;
+  name: string;
+}
+
+/** 下位ジャンルの一覧（genreInformationFlag=1 の children）を読む。 */
+export function parseRakutenGenres(body: string): RakutenGenre[] {
+  let data: unknown;
+  try {
+    data = JSON.parse(body);
+  } catch {
+    return [];
+  }
+  if (!isObject(data)) return [];
+  // GenreInformation は配列で返る場合と、オブジェクトの場合がある
+  const info: unknown = data.GenreInformation ?? data.genreInformation;
+  const first: unknown = Array.isArray(info) ? info[0] : info;
+  const children: unknown = isObject(first)
+    ? (first.children ?? first.Children)
+    : undefined;
+  if (!Array.isArray(children)) return [];
+  return children.flatMap((raw: unknown) => {
+    const wrapped = isObject(raw) ? (raw.child ?? raw.Child) : undefined;
+    const child = isObject(wrapped) ? wrapped : raw;
+    if (!isObject(child)) return [];
+    const id = text(child.booksGenreId);
+    const name = text(child.booksGenreName);
+    return id && name && /^\d+$/.test(id) ? [{ id, name }] : [];
+  });
 }
