@@ -7,6 +7,7 @@ import {
   text,
 } from '../domain/guard.js';
 import { toIsbn13 } from '../domain/isbn.js';
+import type { SearchField } from './http.js';
 
 const BASE = 'https://www.googleapis.com/books/v1/volumes';
 
@@ -14,8 +15,9 @@ export function googleIsbnUrl(isbn13: string): string {
   return `${BASE}?q=${encodeURIComponent(`isbn:${isbn13}`)}`;
 }
 
-export function googleTitleUrl(query: string): string {
-  return `${BASE}?q=${encodeURIComponent(`intitle:${query}`)}&maxResults=20`;
+export function googleSearchUrl(field: SearchField, query: string): string {
+  const prefix = field === 'author' ? 'inauthor' : 'intitle';
+  return `${BASE}?q=${encodeURIComponent(`${prefix}:${query}`)}&maxResults=20`;
 }
 
 function isbn(identifiers: unknown): string | undefined {

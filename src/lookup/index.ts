@@ -1,9 +1,9 @@
 import type { BookCandidate, BookSource } from '../domain/book.js';
 import { toIsbn13 } from '../domain/isbn.js';
-import { googleIsbnUrl, googleTitleUrl, parseGoogle } from './google.js';
+import { googleIsbnUrl, googleSearchUrl, parseGoogle } from './google.js';
 import { fetchText } from './http.js';
-import type { FetchFailure, FetchLike } from './http.js';
-import { ndlIsbnUrl, ndlTitleUrl, parseNdl } from './ndl.js';
+import type { FetchFailure, FetchLike, SearchField } from './http.js';
+import { ndlIsbnUrl, ndlSearchUrl, parseNdl } from './ndl.js';
 import type { XmlParser } from './ndl.js';
 import { openbdUrl, parseOpenbd } from './openbd.js';
 import {
@@ -45,16 +45,25 @@ async function query(
   const result = await fetchText(url, deps.fetch, deps.timeoutMs);
   if (!result.ok) {
     if (source === 'rakuten') {
-      const detail = rakutenError(result.body);
+      const message = rakutenError(result.body, [
+        deps.rakuten?.applicationId ?? '',
+        deps.rakuten?.accessKey ?? '',
+      ]);
       // 該当なしは 404 not_found で返る
       const outcome: Outcome =
         result.status === 404
           ? 'not_found'
           : result.reason === 'http' &&
-              isRakutenAuthError(result.status, detail)
+              isRakutenAuthError(result.status, message)
             ? 'auth'
             : result.reason;
       const attempt: Attempt = { source, outcome };
+      const detail = [
+        result.status ? `HTTP ${result.status}` : undefined,
+        message,
+      ]
+        .filter(Boolean)
+        .join(': ');
       if (detail) attempt.detail = detail;
       return { books: [], attempt };
     }
@@ -135,9 +144,12 @@ function key(book: BookCandidate): string {
   return book.isbn13 ?? `${book.title}|${book.authors.join(',')}`;
 }
 
-/** タイトルで（楽天・）NDL・Googleを並行に検索し、重複をまとめる。 */
-export async function searchTitle(
+export type { SearchField } from './http.js';
+
+/** タイトルか著者で（楽天・）NDL・Googleを並行に検索し、重複をまとめる。 */
+export async function searchBooks(
   input: string,
+  field: SearchField,
   deps: LookupDeps,
 ): Promise<{ books: BookCandidate[]; attempts: Attempt[] }> {
   const q = input.trim();
@@ -147,14 +159,22 @@ export async function searchTitle(
       ? [
           query(
             'rakuten',
-            rakutenUrl(deps.rakuten, { title: q }),
+            rakutenUrl(
+              deps.rakuten,
+              field === 'author' ? { author: q } : { title: q },
+            ),
             parseRakuten,
             deps,
           ),
         ]
       : []),
-    query('ndl', ndlTitleUrl(q), (body) => parseNdl(body, deps.parseXml), deps),
-    query('google', googleTitleUrl(q), parseGoogle, deps),
+    query(
+      'ndl',
+      ndlSearchUrl(field, q),
+      (body) => parseNdl(body, deps.parseXml),
+      deps,
+    ),
+    query('google', googleSearchUrl(field, q), parseGoogle, deps),
   ]);
   const byKey = new Map<string, BookCandidate>();
   for (const book of results.flatMap((r) => r.books)) {
@@ -178,7 +198,8 @@ export async function testRakuten(
     'rakuten',
     rakutenUrl(config, { isbn }),
     parseRakuten,
-    deps,
+    // エラー文の伏せ字に使う
+    { ...deps, rakuten: config },
   );
   return result.attempt;
 }

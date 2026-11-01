@@ -1,3 +1,6 @@
+/** タイトル・著者のどちらで検索するか。 */
+export type SearchField = 'title' | 'author';
+
 export type FetchFailure = 'timeout' | 'network' | 'http' | 'quota';
 
 export type FetchResult =

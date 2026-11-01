@@ -37,7 +37,7 @@ export const outcomeLabel: Record<Outcome, string> = {
   network: '通信失敗（CORS・遮断を含む）',
   http: 'HTTPエラー',
   quota: '上限',
-  auth: 'IDの設定エラー',
+  auth: 'IDまたは許可サイトの設定エラー',
 };
 
 export function todayLocal(now = new Date()): string {
