@@ -3,12 +3,18 @@ import type {
   Book,
   BookCandidate,
   ExportFile,
-  Format,
+  NewRecord,
   ReadingLog,
   ReadingRecord,
-  Status,
 } from '../domain/book.js';
-import { validateExport } from '../domain/validate.js';
+import type { NewLog } from '../domain/manual.js';
+import {
+  validateBook,
+  validateExport,
+  validateLog,
+  validateRecord,
+} from '../domain/validate.js';
+import type { Validation } from '../domain/validate.js';
 
 const DB_VERSION = 1;
 type StoreName = 'books' | 'records' | 'logs';
@@ -68,13 +74,7 @@ export function openDb(
   });
 }
 
-export interface NewRecord {
-  format: Format;
-  status: Status;
-  platform?: string;
-  startedAt?: string;
-  finishedAt?: string;
-}
+export type { NewRecord } from '../domain/book.js';
 
 export type ImportMode = 'replace' | 'merge';
 
@@ -87,6 +87,13 @@ const systemClock: Clock = {
   now: () => new Date(),
   id: () => crypto.randomUUID(),
 };
+
+/** 書き込む値を検証する。不正なら書き込まずに例外にする。 */
+function valid<T>(result: Validation<T>): T {
+  if (!result.ok)
+    throw new Error(`入力が正しくありません: ${result.errors.join('; ')}`);
+  return result.value;
+}
 
 /** 読み出した値を検証する。壊れたデータを画面に流さない。 */
 function checked(snapshot: ExportFile): ExportFile {
@@ -158,6 +165,108 @@ export class Repository {
       await rollback(tx, completed);
       throw error;
     }
+  }
+
+  /** 1つのトランザクションで書き込む。失敗したら中断して例外を投げ直す。 */
+  private async write<T>(
+    stores: StoreName[],
+    fn: (tx: IDBTransaction) => Promise<T>,
+  ): Promise<T> {
+    const tx = this.db.transaction(stores, 'readwrite');
+    const completed = done(tx);
+    try {
+      const result = await fn(tx);
+      await completed;
+      return result;
+    } catch (error) {
+      await rollback(tx, completed);
+      throw error;
+    }
+  }
+
+  private async getRecord(
+    tx: IDBTransaction,
+    id: string,
+  ): Promise<ReadingRecord> {
+    const found: unknown = await promisify(tx.objectStore('records').get(id));
+    if (found === undefined) throw new Error('記録が見つかりません');
+    return valid(validateRecord(found, 'records'));
+  }
+
+  /** 既存の本に、新しい形式の記録を追加する（ISBNのない本にも使える）。 */
+  addRecordForBook(bookId: string, input: NewRecord): Promise<ReadingRecord> {
+    return this.write(['books', 'records'], async (tx) => {
+      const book: unknown = await promisify(
+        tx.objectStore('books').get(bookId),
+      );
+      if (book === undefined) throw new Error('本が見つかりません');
+      const now = this.clock.now().toISOString();
+      const record: ReadingRecord = {
+        id: this.clock.id(),
+        bookId,
+        tags: [],
+        createdAt: now,
+        updatedAt: now,
+        ...input,
+      };
+      tx.objectStore('records').add(valid(validateRecord(record, 'record')));
+      return record;
+    });
+  }
+
+  /** 記録を置き換える。本とidは変えられない。updatedAtを今にする。 */
+  updateRecord(record: ReadingRecord): Promise<ReadingRecord> {
+    return this.write(['records'], async (tx) => {
+      const current = await this.getRecord(tx, record.id);
+      if (current.bookId !== record.bookId)
+        throw new Error('記録の本は変更できません');
+      const next = valid(
+        validateRecord(
+          {
+            ...record,
+            createdAt: current.createdAt,
+            updatedAt: this.clock.now().toISOString(),
+          },
+          'record',
+        ),
+      );
+      tx.objectStore('records').put(next);
+      return next;
+    });
+  }
+
+  /** 本の情報を置き換える。 */
+  updateBook(book: Book): Promise<Book> {
+    return this.write(['books'], async (tx) => {
+      const store = tx.objectStore('books');
+      if ((await promisify(store.get(book.id))) === undefined)
+        throw new Error('本が見つかりません');
+      const next = valid(validateBook(book, 'book'));
+      store.put(next);
+      return next;
+    });
+  }
+
+  /** 進捗ログを追加し、記録のupdatedAtも更新する。 */
+  addLog(recordId: string, input: NewLog): Promise<ReadingLog> {
+    return this.write(['records', 'logs'], async (tx) => {
+      const record = await this.getRecord(tx, recordId);
+      const log = valid(
+        validateLog({ ...input, id: this.clock.id(), recordId }, 'log'),
+      );
+      tx.objectStore('logs').add(log);
+      tx.objectStore('records').put({
+        ...record,
+        updatedAt: this.clock.now().toISOString(),
+      });
+      return log;
+    });
+  }
+
+  deleteLog(id: string): Promise<void> {
+    return this.write(['logs'], async (tx) => {
+      await promisify(tx.objectStore('logs').delete(id));
+    });
   }
 
   /** 記録とその進捗ログを削除する。どの記録からも参照されない本も削除する。 */

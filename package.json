@@ -19,6 +19,8 @@
     "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build"
   },
   "dependencies": {
+    "@zxing/browser": "0.2.1",
+    "@zxing/library": "0.23.0",
     "preact": "11.1.1"
   },
   "devDependencies": {

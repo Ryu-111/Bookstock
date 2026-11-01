@@ -17,3 +17,11 @@
 ## 結果
 
 - iOSでの読み取り速度と精度は、M3で実機確認する。
+
+## 追記（2026-10-31、M3）
+
+決定は変えない。実装で分かったことを残す。
+
+- zxingは `BrowserMultiFormatOneDReader` をEAN-13だけに絞って使う。`@zxing/browser` と `@zxing/library` は動的importで別のchunkになる（約120KB gzip）。BarcodeDetectorがEAN-13に対応するブラウザでは読み込まない。
+- カメラのストリームはアプリで `getUserMedia({ video: { facingMode: { ideal: 'environment' } } })` から取り、どちらの方式でも同じ手順で止める。ISBNを1つ読んだら止める。
+- 開発環境のChromium（Linux、BarcodeDetectorなし）では、合成の2段バーコードを偽カメラで流し、zxingが1段目のISBNだけを返すことを確認した。BarcodeDetectorの経路と実機（iOS Safari、Android Chrome）での読み取りは未確認。

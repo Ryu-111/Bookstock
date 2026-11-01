@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import type { ExportFile } from '../domain/book.js';
 import type { ImportMode } from '../storage/db.js';
+import { Cell, Group, Segmented } from './ios.js';
 import { exportFileName, parseExportFile } from '../storage/export-file.js';
 
 function download(data: ExportFile) {
@@ -50,43 +51,60 @@ export function DataPanel({
 
   return (
     <section>
-      <h2>データ</h2>
-      <p>記録はこのブラウザにだけ保存されます。定期的に書き出してください。</p>
-      <button type="button" onClick={() => download(data)}>
-        JSONで書き出す
-      </button>
-      <fieldset>
-        <legend>読み込み方</legend>
-        <label>
-          <input
-            type="radio"
-            name="mode"
-            checked={mode === 'merge'}
-            onChange={() => setMode('merge')}
+      <h1 class="large-title">設定</h1>
+      <Group
+        header="バックアップ"
+        footer="記録はこのブラウザにだけ保存されます。ブラウザのデータを消すと失われるので、定期的に書き出してください。"
+      >
+        <div class="cell">
+          <span class="cell-label">保存している記録</span>
+          <span class="cell-value">
+            {data.books.length}冊・{data.records.length}件
+          </span>
+        </div>
+        <button
+          type="button"
+          class="cell cell-button"
+          onClick={() => download(data)}
+        >
+          JSONで書き出す
+        </button>
+      </Group>
+      <Group
+        header="読み込み"
+        footer="統合は同じIDの記録を上書きし、ほかは残します。置換は今のデータをすべて消します。"
+      >
+        <Cell label="読み込み方" control={false}>
+          <Segmented
+            label="読み込み方"
+            options={[
+              ['merge', '統合'],
+              ['replace', '置換'],
+            ]}
+            value={mode}
+            onChange={setMode}
           />
-          統合（同じIDは上書き）
-        </label>
-        <label>
+        </Cell>
+        <label class="cell cell-button">
+          JSONファイルを選ぶ
           <input
-            type="radio"
-            name="mode"
-            checked={mode === 'replace'}
-            onChange={() => setMode('replace')}
+            type="file"
+            class="visually-hidden"
+            accept="application/json,.json"
+            aria-label="JSONを読み込む"
+            onChange={(e) => {
+              const file = e.currentTarget.files?.[0];
+              e.currentTarget.value = '';
+              if (file) void importFile(file);
+            }}
           />
-          置換
         </label>
-      </fieldset>
-      <input
-        type="file"
-        accept="application/json,.json"
-        aria-label="JSONを読み込む"
-        onChange={(e) => {
-          const file = e.currentTarget.files?.[0];
-          e.currentTarget.value = '';
-          if (file) void importFile(file);
-        }}
-      />
-      {message && <p role="status">{message}</p>}
+      </Group>
+      {message && (
+        <p role="status" class="footnote">
+          {message}
+        </p>
+      )}
     </section>
   );
 }

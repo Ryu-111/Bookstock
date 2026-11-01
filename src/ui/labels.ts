@@ -7,6 +7,13 @@ export const formatLabel: Record<Format, string> = {
   audiobook: 'オーディオブック',
 };
 
+/** セグメント・バッジなど幅の狭い場所で使う短い表記。 */
+export const formatShortLabel: Record<Format, string> = {
+  paper: '紙',
+  ebook: '電子',
+  audiobook: 'オーディオ',
+};
+
 export const statusLabel: Record<Status, string> = {
   want: '読みたい',
   stacked: '積読',
