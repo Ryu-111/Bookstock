@@ -46,3 +46,27 @@ export function browserStorage(): StorageLike | null {
     return null;
   }
 }
+
+export type Persistence = 'persisted' | 'best-effort' | 'unsupported';
+
+/** navigator.storage のうち使う部分。テストでは差し替える。 */
+export interface StorageManagerLike {
+  persisted?: () => Promise<boolean>;
+  persist?: () => Promise<boolean>;
+}
+
+/**
+ * ブラウザに「容量が足りなくなっても消さない保存」を求める。
+ * 許可するかはブラウザが決める（Safariはホーム画面に追加したときなど）。
+ */
+export async function requestPersistence(
+  manager: StorageManagerLike | undefined,
+): Promise<Persistence> {
+  if (!manager?.persist || !manager.persisted) return 'unsupported';
+  try {
+    if (await manager.persisted()) return 'persisted';
+    return (await manager.persist()) ? 'persisted' : 'best-effort';
+  } catch {
+    return 'best-effort';
+  }
+}

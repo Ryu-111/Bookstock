@@ -5,8 +5,10 @@ import type { RakutenConfig } from './lookup/rakuten.js';
 import {
   browserStorage,
   loadRakutenConfig,
+  requestPersistence,
   saveRakutenConfig,
 } from './storage/settings.js';
+import type { Persistence } from './storage/settings.js';
 import { DataPanel } from './ui/data.js';
 import { RakutenSettings } from './ui/rakuten-settings.js';
 import { RecordPage } from './ui/record-page.js';
@@ -59,6 +61,7 @@ const TABS = [
 export function App() {
   const route = useRoute();
   const [state, setState] = useState<State>({ kind: 'loading' });
+  const [persistence, setPersistence] = useState<Persistence>();
   const [rakuten, setRakuten] = useState<RakutenConfig | null>(() =>
     loadRakutenConfig(browserStorage()),
   );
@@ -73,6 +76,7 @@ export function App() {
     openDb(window.indexedDB)
       .then(async (db) => {
         const repo = new Repository(db);
+        void requestPersistence(navigator.storage).then(setPersistence);
         setState({ kind: 'ready', repo, data: await repo.snapshot() });
       })
       .catch((error: unknown) =>
@@ -189,6 +193,7 @@ export function App() {
           <>
             <DataPanel
               data={state.data}
+              persistence={persistence}
               onImport={async (file, mode) => {
                 await repo.importFile(file, mode);
                 setState({ kind: 'ready', repo, data: await repo.snapshot() });

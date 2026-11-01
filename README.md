@@ -1,13 +1,62 @@
 # Bookstock
 
-紙の本・電子書籍・オーディオブックの読書記録をつけて、見える化するWebアプリです。GitHub Pagesで公開し、データはブラウザ（IndexedDB）にだけ保存します。現在は設計と開発ハーネスの段階で、アプリは雛形です。
+紙の本・電子書籍・オーディオブックを分けて記録し、読書量をグラフで見られる読書記録アプリです。
 
-設計は [CONTEXT.md](CONTEXT.md)、[アーキテクチャ](docs/architecture.md)、[ADR](docs/adr/)、[実装計画](docs/plan.md) を参照してください。エージェント向けのルールは [AGENTS.md](AGENTS.md) にあります。
+- **使う:** https://ryu-111.github.io/Bookstock/ （スマホのブラウザでそのまま使えます）
+- **データ:** あなたのブラウザの中にだけ保存されます。サーバーには送りません。
 
-## 開発の準備
+## できること
 
-- Node 22.22.3（`.nvmrc`）、npm、Git、rtk、[jev-router](https://github.com/Ryu-111/jev-router)（`jh`）を使います。
-- TypeScript strict / ESM、Preact、Vite、ESLint、Prettier、Node標準テスト＋tsxで統一します（jev-routerと同じ構成）。
+- **本を登録する:** バーコードのスキャン、ISBN・タイトルでの検索、手入力
+- **形式を分けて記録する:** 同じ本を「紙」と「オーディオ」のように別々に記録できる
+- **本棚で探す:** 形式・状態・タグ・キーワードで絞り込み、最近順・タイトル順で並べる
+- **記録を育てる:** 状態（読みたい・積読・読書中・読了・中断）、日付、評価、メモ、タグ、進捗（ページ・分）
+- **統計を見る:** 読了冊数、ページ数、聴いた時間、月別のグラフ、読書カレンダー
+- **バックアップする:** JSONで書き出し、別の端末で読み込む
+
+## 使い方
+
+1. 下のタブの **登録** で、**スキャン** を押して本の裏表紙のバーコード（978・979で始まる方）を映す。ISBNやタイトルで検索してもよい。
+2. 見つかった本を選び、形式と状態を選んで **本棚に追加** を押す。見つからないときは **手入力** で登録する。
+3. 読み終えたら、本棚から記録を開いて状態を **読了** にする。読了日は今日の日付が自動で入る（変更もできる）。
+4. **統計** タブで、月ごとの読了や読書カレンダーを見る。
+
+## データとプライバシー
+
+- 記録はブラウザ（IndexedDB）にだけ保存されます。端末ごとに別々で、自動では同期しません。
+- アプリを更新（デプロイ）しても記録は消えません。保存先はブラウザで、公開URL（`https://ryu-111.github.io`）ごとに分かれています。
+- ブラウザのデータを消したとき、ブラウザが容量を空けるときには消えることがあります。**設定** の **JSONで書き出す** で、ときどきバックアップしてください。
+- アプリは起動時にブラウザへ「消えにくい保存」を求めます。許可されたかは **設定** で確認できます。iPhoneでは、Safariの共有メニューから **ホーム画面に追加** して使うと消えにくくなります。
+- 本を検索するときは、ISBNかタイトルだけを書誌サービスに送ります。読書記録は送りません。
+
+## 本の情報の取得元
+
+ISBN検索は上から順に引き、足りない項目（書影・ページ数など）を下のサービスで補います。
+
+| 取得元               | 使う条件               | 注意                                                     |
+| -------------------- | ---------------------- | -------------------------------------------------------- |
+| 楽天ブックス         | 設定でアプリIDを入れた | 書影・読み仮名に強い。仕様が変わっている可能性あり（下） |
+| openBD               | いつも                 | v1の提供終了が発表されている                             |
+| 国立国会図書館サーチ | いつも                 | ページ数・分類（NDC）に強い                              |
+| Google Books         | いつも                 | 1日の上限に達すると使えない                              |
+
+どれでも見つからない本は、手入力で登録できます。
+
+### 楽天ブックスを使う
+
+1. [楽天ウェブサービス](https://webservice.rakuten.co.jp/) でアプリを登録し、アプリIDとアクセスキーを発行する。登録画面の「許可するWebサイト」には `ryu-111.github.io` を入れる（手元の開発サーバーで試すなら `localhost` も）。
+2. **設定** の **楽天ブックスAPI** に入力して **保存** する。値はこのブラウザにだけ保存され、書き出しにも含まれません。
+3. **接続テスト** で「接続できました」と出れば完了です。
+
+楽天のAPIは2026年5月14日に旧URL（`app.rakuten.co.jp`）が廃止され、`openapi.rakuten.co.jp` とアプリID・アクセスキーの組み合わせだけが使えます。旧アプリIDでは動かないので、アプリを登録し直してください。楽天の制限は1つのアプリIDにつき1秒に1回なので、続けて検索するとまれに「上限」と表示されます。
+
+## 開発する人へ
+
+設計の考え方は [CONTEXT.md](CONTEXT.md)、[アーキテクチャ](docs/architecture.md)、[ADR](docs/adr/)、[実装計画](docs/plan.md) にまとめています。エージェント向けのルールは [AGENTS.md](AGENTS.md) です。
+
+### 準備
+
+Node 22.22.3（`.nvmrc`）、npm、Git、rtk、[jev-router](https://github.com/Ryu-111/jev-router)（`jh`）を使います。
 
 ```sh
 rtk proxy npm ci
@@ -15,39 +64,34 @@ rtk proxy npm run check
 npm run dev   # http://localhost:5173/Bookstock/
 ```
 
-`npm ci` のprepareで、Huskyがpre-commitを有効にします。pre-commitはindexを一時ディレクトリに展開し、ステージ済みファイルの書式・lintと、全体の型検査・テストを実行します。
+TypeScript strict / ESM、Preact、Vite、ESLint、Prettier、Node標準テスト＋tsxの構成です。`npm ci` でHuskyのpre-commitが有効になり、commitのたびに書式・lint・型検査・テストが走ります。
 
 | コマンド               | 用途                       |
 | ---------------------- | -------------------------- |
 | `npm run dev`          | 開発サーバー               |
-| `npm run format`       | Prettierで修正             |
-| `npm run format:check` | 書式確認、書き込みなし     |
-| `npm run lint`         | ESLint、warningも失敗      |
-| `npm run typecheck`    | strict型検査               |
-| `npm test`             | 合成fixtureでテスト        |
+| `npm run format`       | Prettierで整形             |
+| `npm run format:check` | 書式の確認（書き込みなし） |
+| `npm run lint`         | ESLint（warningも失敗）    |
+| `npm run typecheck`    | 型検査                     |
+| `npm test`             | テスト（合成データ）       |
 | `npm run build`        | `dist/` へビルド           |
-| `npm run check`        | 上記の検証＋テスト＋ビルド |
+| `npm run check`        | 上の検証をすべて実行       |
 
-## jev-router（jh）で開発する
+### jev-router（jh）で開発する
 
-1. jev-routerで `jh install` を済ませておきます（Hook・Delegate MCP・`jev-workflow` Skillがグローバルに入ります）。
-2. このリポジトリで `jh claude` または `jh codex` を起動します。モデルとeffortはターンごとにJevが選びます。
-3. Claude Codeでは、jhの製品Hookが `.jh.json` を読み、編集のたびにPrettierをかけます。Stopでは1次チェックとして `npm run check` と `tsc --noEmit` を実行し、そのあとJevが完了を判定します。
-4. CodexはjhのHookの対象外です。pre-commitとCIで検証します。
-5. もう一方のベンダーにレビューを頼むときは、Delegate MCPの `mode=read` を使います。
+1. jev-routerで `jh install` を済ませる。
+2. このリポジトリで `jh claude` か `jh codex` を起動する。モデルとeffortはJevがターンごとに選ぶ。
+3. Claude Codeでは、jhのHookが `.jh.json` を読み、編集のたびに整形し、終了時に `npm run check` を実行する。
+4. CodexはjhのHookの対象外なので、pre-commitとCIで確認する。
 
-このリポジトリには独自の開発Hookを置きません（jhのHookと二重に動かさないため）。
+このリポジトリには独自の開発Hookを置いていません（jhのHookと二重に動かさないため）。
 
-## GitHub Pagesへの公開
+### 公開
 
-1. リポジトリをpublicにします（無料プランでPagesを使うため）。
-2. Settings → Pages → Build and deployment の Source を「GitHub Actions」にします。
-3. mainへpushすると `.github/workflows/pages.yml` が `npm run check` → ビルド → デプロイを行います。公開URLは `https://<user>.github.io/Bookstock/` です。
+mainにマージすると、`.github/workflows/pages.yml` が `npm run check` → ビルド → GitHub Pagesへのデプロイを行います。PRとmainへのpushでは `.github/workflows/check.yml` が検証します。
 
-## ドキュメントMCP
-
-`.mcp.json`（Claude Code）と `.codex/config.toml`（Codex）に、context7とopenaiDeveloperDocsを設定しています。context7は環境変数 `CONTEXT7_API_KEY` を使います。キーの値はリポジトリに書きません。
+`.mcp.json`（Claude Code）と `.codex/config.toml`（Codex）には、ドキュメント用のMCP（context7、openaiDeveloperDocs）を設定しています。context7は環境変数 `CONTEXT7_API_KEY` を使い、値はリポジトリに書きません。
 
 ## ライセンス
 
-MIT。`scripts/pre-commit.ts` と `scripts/process.ts` は、jev-router（MIT、同じ作者）から流用しました。
+MIT。`scripts/pre-commit.ts` と `scripts/process.ts` は、jev-router（MIT、同じ作者）から流用しています。

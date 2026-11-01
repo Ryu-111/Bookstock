@@ -71,7 +71,8 @@ export function RakutenSettings({
             >
               楽天ウェブサービス
             </a>
-            で無料で発行できます。
+            で無料で発行できます。アプリ登録の「許可するWebサイト」には、このアプリのドメイン（例:
+            ryu-111.github.io）を入れてください。
           </>
         }
       >
@@ -89,7 +90,7 @@ export function RakutenSettings({
             type="password"
             value={fields.accessKey}
             onInput={set('accessKey')}
-            placeholder="必要な場合のみ"
+            placeholder="必須"
             autoComplete="off"
           />
         </Cell>

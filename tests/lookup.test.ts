@@ -200,10 +200,11 @@ await test('NDL: ブラウザのparsererror文書は空配列', () => {
   );
 });
 
-const RAKUTEN = 'app.rakuten.co.jp';
+const RAKUTEN = 'openapi.rakuten.co.jp';
 const rakuten = {
   applicationId: 'app',
-  endpoint: 'https://app.rakuten.co.jp/services/api/BooksBook/Search/20170404',
+  endpoint:
+    'https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404',
 };
 
 await test('lookupIsbn: 楽天の設定があれば最初に引き、ページ数はNDLで補う', async () => {
@@ -244,4 +245,28 @@ await test('lookupIsbn: 楽天の設定がなければ呼ばない。IDエラー
   });
   const t = await testRakuten(rakuten, deps(bad.fetch));
   assert.equal(t.outcome, 'auth');
+
+  // 該当なし（404 not_found）と、IDに関係しないパラメータの誤り
+  const missing = stub({
+    [RAKUTEN]: {
+      status: 404,
+      body: '{"error":"not_found","error_description":"not found"}',
+    },
+  });
+  assert.equal(
+    (await testRakuten(rakuten, deps(missing.fetch))).outcome,
+    'not_found',
+  );
+  const param = stub({
+    [RAKUTEN]: {
+      status: 400,
+      body: '{"error":"wrong_parameter","error_description":"hits must be 1-30"}',
+    },
+  });
+  const p = await testRakuten(rakuten, deps(param.fetch));
+  assert.deepEqual(p, {
+    source: 'rakuten',
+    outcome: 'http',
+    detail: 'wrong_parameter: hits must be 1-30',
+  });
 });

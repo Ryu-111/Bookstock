@@ -6,7 +6,12 @@ import type { FetchFailure, FetchLike } from './http.js';
 import { ndlIsbnUrl, ndlTitleUrl, parseNdl } from './ndl.js';
 import type { XmlParser } from './ndl.js';
 import { openbdUrl, parseOpenbd } from './openbd.js';
-import { parseRakuten, rakutenError, rakutenUrl } from './rakuten.js';
+import {
+  isRakutenAuthError,
+  parseRakuten,
+  rakutenError,
+  rakutenUrl,
+} from './rakuten.js';
 import type { RakutenConfig } from './rakuten.js';
 
 export interface LookupDeps {
@@ -41,12 +46,15 @@ async function query(
   if (!result.ok) {
     if (source === 'rakuten') {
       const detail = rakutenError(result.body);
-      const auth =
-        result.status === 400 || result.status === 401 || result.status === 403;
-      const attempt: Attempt = {
-        source,
-        outcome: auth && result.reason === 'http' ? 'auth' : result.reason,
-      };
+      // 該当なしは 404 not_found で返る
+      const outcome: Outcome =
+        result.status === 404
+          ? 'not_found'
+          : result.reason === 'http' &&
+              isRakutenAuthError(result.status, detail)
+            ? 'auth'
+            : result.reason;
+      const attempt: Attempt = { source, outcome };
       if (detail) attempt.detail = detail;
       return { books: [], attempt };
     }

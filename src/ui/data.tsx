@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import type { ExportFile } from '../domain/book.js';
 import type { ImportMode } from '../storage/db.js';
+import type { Persistence } from '../storage/settings.js';
 import { Cell, Group, Segmented } from './ios.js';
 import { exportFileName, parseExportFile } from '../storage/export-file.js';
 
@@ -19,8 +20,10 @@ function download(data: ExportFile) {
 export function DataPanel({
   data,
   onImport,
+  persistence,
 }: {
   data: ExportFile;
+  persistence: Persistence | undefined;
   onImport: (file: ExportFile, mode: ImportMode) => Promise<void>;
 }) {
   const [mode, setMode] = useState<ImportMode>('merge');
@@ -54,8 +57,20 @@ export function DataPanel({
       <h1 class="large-title">設定</h1>
       <Group
         header="バックアップ"
-        footer="記録はこのブラウザにだけ保存されます。ブラウザのデータを消すと失われるので、定期的に書き出してください。"
+        footer="記録はこのブラウザにだけ保存されます。アプリを更新しても消えませんが、ブラウザのデータを消したときや、ブラウザが容量を空けるときに失われることがあります。定期的に書き出してください。iPhoneでは、Safariの共有メニューから「ホーム画面に追加」して使うと消えにくくなります。"
       >
+        <div class="cell">
+          <span class="cell-label">消えにくい保存</span>
+          <span class="cell-value">
+            {persistence === 'persisted'
+              ? '有効'
+              : persistence === 'best-effort'
+                ? 'ブラウザの判断で消える場合あり'
+                : persistence === 'unsupported'
+                  ? '非対応のブラウザ'
+                  : '確認中'}
+          </span>
+        </div>
         <div class="cell">
           <span class="cell-label">保存している記録</span>
           <span class="cell-value">
