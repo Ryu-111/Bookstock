@@ -72,6 +72,8 @@ export function rakutenUrl(
     formatVersion: '2',
     applicationId: config.applicationId,
     hits: '20',
+    // 既定（0）では品切れ・販売終了の本が除かれ、手持ちの古い本が見つからないため含める。
+    outOfStockFlag: '1',
   });
   if (config.accessKey) params.set('accessKey', config.accessKey);
   if ('isbn' in query) params.set('isbn', query.isbn);
@@ -85,8 +87,9 @@ function authors(value: unknown): string[] {
 }
 
 function parseItem(raw: unknown): BookCandidate | undefined {
-  // formatVersion=1 は { Item: {...} }、2 は {...} のまま返る。
-  const item = isObject(raw) && isObject(raw.Item) ? raw.Item : raw;
+  // formatVersion=1 は { item: {...} }（XMLの表記では Item）、2 は {...} のまま返る。
+  const wrapped = isObject(raw) ? (raw.item ?? raw.Item) : undefined;
+  const item = isObject(wrapped) ? wrapped : raw;
   if (!isObject(item)) return undefined;
   const baseTitle = text(item.title);
   if (!baseTitle) return undefined;
@@ -117,8 +120,21 @@ export function parseRakuten(body: string): BookCandidate[] {
   } catch {
     return [];
   }
-  if (!isObject(data) || !Array.isArray(data.Items)) return [];
-  return data.Items.flatMap((item) => parseItem(item) ?? []);
+  // 公式のJSON例は小文字の items。XMLの表記に合わせた Items も受け付ける。
+  const items: unknown = isObject(data)
+    ? (data.items ?? data.Items)
+    : undefined;
+  if (!Array.isArray(items)) return [];
+  return items.flatMap((item) => parseItem(item) ?? []);
+}
+
+/** IDやキーの誤りによるエラーか（400 wrong_parameter のうち認証情報に関するもの、401・403）。 */
+export function isRakutenAuthError(
+  status: number | undefined,
+  detail: string | undefined,
+): boolean {
+  if (status === 401 || status === 403) return true;
+  return status === 400 && /applicationId|accessKey/i.test(detail ?? '');
 }
 
 /** エラー応答（{"error": "...", "error_description": "..."}）の説明文。 */

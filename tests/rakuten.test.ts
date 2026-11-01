@@ -44,8 +44,24 @@ await test('parseRakuten: 書誌・読み仮名・「頃」付きの日付・書
   ]);
 });
 
+await test('parseRakuten: XML表記に合わせた Items / Item の形も読む', () => {
+  assert.deepEqual(
+    parseRakuten(
+      '{"Items":[{"Item":{"title":"大文字の形","salesDate":"2020年"}}]}',
+    ),
+    [
+      {
+        title: '大文字の形',
+        authors: [],
+        source: 'rakuten',
+        publishedDate: '2020',
+      },
+    ],
+  );
+});
+
 await test('parseRakuten: 該当なし・壊れた応答は空配列', () => {
-  assert.deepEqual(parseRakuten('{"count":0,"Items":[]}'), []);
+  assert.deepEqual(parseRakuten('{"count":0,"items":[]}'), []);
   assert.deepEqual(parseRakuten('{"error":"wrong_parameter"}'), []);
   assert.deepEqual(parseRakuten('<html>'), []);
 });
@@ -116,6 +132,8 @@ await test('rakutenUrl: IDとキーをクエリにする（キーは設定時の
   assert.equal(url.searchParams.get('applicationId'), 'app');
   assert.equal(url.searchParams.get('accessKey'), 'key');
   assert.equal(url.searchParams.get('isbn'), '9784003101018');
+  assert.equal(url.searchParams.get('formatVersion'), '2');
+  assert.equal(url.searchParams.get('outOfStockFlag'), '1');
   const title = new URL(
     rakutenUrl(
       { applicationId: 'app', endpoint: DEFAULT_RAKUTEN_ENDPOINT },

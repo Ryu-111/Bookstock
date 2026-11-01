@@ -42,3 +42,16 @@
   - 既定値は `openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404`（2026-11-01更新）。旧URL（`app.rakuten.co.jp/…`）に新形式のIDを送ると `wrong_parameter: specify valid applicationId` になることを、ユーザーのブラウザで確認した。旧URLを保存した設定は新しいURLに読み替える。新URLは複数の開発者の報告による値で、公式ページは開発環境から未確認。
   - 旧URLへのブラウザからの呼び出しはCORSで拒否されず、APIのエラー文が返った（ユーザーのブラウザで確認）。
   - 設定画面でURLを差し替えられる。接続テストは、APIのエラー文をそのまま表示する。
+
+### 追記（2026-11-01、公式ドキュメントの確認）
+
+ユーザーが別のツールで公式ドキュメント（`webservice.rakuten.co.jp/documentation/books-book-search`、公式ブログの移行告知、ヘルプ）を確認した結果に合わせた。
+
+- エンドポイントは `https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404` で確定。旧ドメインは2026-05-14に廃止された。
+- `applicationId`（クエリ）と `accessKey`（ヘッダーかクエリ）は必須。プリフライトを避けるため、`accessKey` もクエリで送る。
+- アプリ登録で「許可するWebサイト」が必須。Referer / Origin の照合方法とCORSの条件は公式文書に記載がない。旧URLへのブラウザからの呼び出しでは、APIのエラー文が返った（CORSで拒否されなかった）。
+- JSON（`formatVersion=2`）の配列は小文字の `items`。`Items` / `Item` も受け付ける。
+- `outOfStockFlag` の既定値（0）は品切れ・販売終了の本を除くため、`1` を送る。
+- 該当なしは404 `not_found` で返るので「該当なし」として扱う。IDやキーの誤りは400 `wrong_parameter`（説明に applicationId / accessKey を含む）として「IDの設定エラー」と表示する。
+- 制限は1アプリIDにつき1秒1回。超えると429。
+- ページ数は応答に含まれないため、NDLなどで補う（既存の仕組み）。
