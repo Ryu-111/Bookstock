@@ -18,6 +18,7 @@ import { href, parseRoute } from './ui/route.js';
 import type { Route } from './ui/route.js';
 import { Search } from './ui/search.js';
 import type { SaveHandler } from './ui/search.js';
+import { formatLabel } from './ui/labels.js';
 import { Shelf } from './ui/shelf.js';
 import { StatsPage } from './ui/stats.js';
 
@@ -178,7 +179,17 @@ export function App() {
             {notice.text}
           </p>
         )}
-        {route.page === 'shelf' && <Shelf data={state.data} />}
+        {route.page === 'shelf' && (
+          <Shelf
+            data={state.data}
+            onChangeFormat={(ids, format, platform) =>
+              run(
+                () => repo.changeFormat(ids, format, platform),
+                `${ids.length}冊を${formatLabel[format]}に変更しました`,
+              )
+            }
+          />
+        )}
         {route.page === 'stats' && <StatsPage data={state.data} />}
         {route.page === 'add' && <Search onSave={onSave} rakuten={rakuten} />}
         {route.page === 'record' && (

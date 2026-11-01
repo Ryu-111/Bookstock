@@ -152,3 +152,29 @@ await test('空のデータでも0を返す', () => {
   assert.equal(future.days, 0);
   assert.equal(future.pagesPerDay, 0);
 });
+
+await test('聴いた時間: 長さがなければ進捗の分を使い、長さがあれば長さを優先する', () => {
+  const d: ExportFile = {
+    ...data,
+    records: [
+      rec('a', { id: 'x1', format: 'audiobook', finishedAt: '2026-05-01' }),
+      rec('a', {
+        id: 'x2',
+        format: 'audiobook',
+        finishedAt: '2026-05-02',
+        totalMinutes: 300,
+      }),
+      rec('a', { id: 'x3', format: 'audiobook', finishedAt: '2026-05-03' }),
+    ],
+    logs: [
+      { id: 'm1', recordId: 'x1', date: '2026-04-30', minutes: 40 },
+      { id: 'm2', recordId: 'x1', date: '2026-05-01', minutes: 20 },
+      { id: 'm3', recordId: 'x2', date: '2026-05-01', minutes: 999 },
+    ],
+  };
+  const s = computeStats(d, { kind: 'year', year: 2026 }, '2026-10-31');
+  assert.equal(s.finished.minutes, 60 + 300);
+  assert.equal(s.buckets[4]?.total.minutes, 360);
+  assert.equal(s.minutesMissing, 1);
+  assert.deepEqual(s.minutesMissingIds, ['x3']);
+});

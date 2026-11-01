@@ -3,10 +3,12 @@ import type {
   Book,
   BookCandidate,
   ExportFile,
+  Format,
   NewRecord,
   ReadingLog,
   ReadingRecord,
 } from '../domain/book.js';
+import { changeFormat } from '../domain/manual.js';
 import type { NewLog } from '../domain/manual.js';
 import {
   validateBook,
@@ -232,6 +234,34 @@ export class Repository {
       );
       tx.objectStore('records').put(next);
       return next;
+    });
+  }
+
+  /**
+   * 複数の記録の形式をまとめて変える。1件でも見つからない・不正なら何も書かない。
+   * 変更した件数を返す。
+   */
+  changeFormat(
+    ids: readonly string[],
+    format: Format,
+    platform?: string,
+  ): Promise<number> {
+    return this.write(['records'], async (tx) => {
+      const now = this.clock.now().toISOString();
+      const next: ReadingRecord[] = [];
+      for (const id of new Set(ids)) {
+        const current = await this.getRecord(tx, id);
+        next.push(
+          valid(
+            validateRecord(
+              { ...changeFormat(current, format, platform), updatedAt: now },
+              'record',
+            ),
+          ),
+        );
+      }
+      for (const record of next) tx.objectStore('records').put(record);
+      return next.length;
     });
   }
 

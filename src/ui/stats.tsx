@@ -3,8 +3,9 @@ import { FORMATS, STATUSES } from '../domain/book.js';
 import type { ExportFile } from '../domain/book.js';
 import { computeStats } from '../domain/stats.js';
 import type { Amount, Bucket, Period, Stats } from '../domain/stats.js';
-import { Group, Segmented } from './ios.js';
+import { Group, Icon, Segmented } from './ios.js';
 import { formatShortLabel, statusLabel, todayLocal } from './labels.js';
+import { href } from './route.js';
 
 const num = (n: number) => n.toLocaleString('ja-JP');
 
@@ -483,7 +484,11 @@ export function StatsPage({ data }: { data: ExportFile }) {
           label="聴いた時間"
           value={num(Math.round(f.minutes / 6) / 10)}
           unit="時間"
-          note={`オーディオ${num(f.byFormat.audiobook.count)}冊`}
+          note={
+            stats.minutesMissing > 0
+              ? `オーディオ${num(f.byFormat.audiobook.count)}冊・長さ未入力${num(stats.minutesMissing)}冊`
+              : `オーディオ${num(f.byFormat.audiobook.count)}冊`
+          }
         />
         <Tile
           label="月平均"
@@ -578,8 +583,45 @@ export function StatsPage({ data }: { data: ExportFile }) {
         </Group>
       )}
 
+      <MissingMinutes stats={stats} data={data} />
       <Notes stats={stats} />
     </section>
+  );
+}
+
+const MISSING_LIMIT = 20;
+
+/** 長さを入れていないオーディオブックの一覧。記録の画面へ直しに行ける。 */
+function MissingMinutes({ stats, data }: { stats: Stats; data: ExportFile }) {
+  if (stats.minutesMissingIds.length === 0) return null;
+  const records = new Map(data.records.map((r) => [r.id, r]));
+  const books = new Map(data.books.map((b) => [b.id, b]));
+  const shown = stats.minutesMissingIds.slice(0, MISSING_LIMIT);
+  const rest = stats.minutesMissingIds.length - shown.length;
+  return (
+    <Group
+      header="長さ未入力のオーディオブック"
+      label="長さ未入力のオーディオブック"
+      footer={`記録の画面で「長さ（分）」を入れると、聴いた時間に入ります。${rest > 0 ? `ほかに${rest}冊あります。` : ''}`}
+    >
+      {shown.map((id) => {
+        const record = records.get(id);
+        const book = record && books.get(record.bookId);
+        return (
+          <a
+            key={id}
+            class="cell cell-link"
+            href={href({ page: 'record', id })}
+          >
+            <span class="cell-label cell-title">
+              {book?.title ?? '（不明な本）'}
+            </span>
+            <span class="cell-value">{record?.finishedAt ?? ''}</span>
+            <Icon name="chevron" />
+          </a>
+        );
+      })}
+    </Group>
   );
 }
 
@@ -591,7 +633,7 @@ function Notes({ stats }: { stats: Stats }) {
     stats.pagesMissing > 0 &&
       `ページ数のない本が${stats.pagesMissing}冊あり、ページ数は0として数えています。`,
     stats.minutesMissing > 0 &&
-      `長さのないオーディオブックが${stats.minutesMissing}件あり、時間は0として数えています。`,
+      `長さも進捗の分もないオーディオブックが${stats.minutesMissing}件あり、時間は0として数えています。上の一覧から長さを入れると反映されます。`,
   ].filter((n): n is string => typeof n === 'string');
   if (notes.length === 0) return null;
   return (

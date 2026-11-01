@@ -49,8 +49,10 @@ export interface Stats {
   finished: Amount & { uniqueBooks: number; byFormat: Record<Format, Amount> };
   /** 紙・電子の読了でページ数のない本の数 */
   pagesMissing: number;
-  /** オーディオの読了で長さのない記録の数 */
+  /** オーディオの読了で、長さも進捗の分もない記録の数 */
   minutesMissing: number;
+  /** 長さも進捗の分もないオーディオの読了記録のid */
+  minutesMissingIds: string[];
   /** 読了なのに読了日がない記録の数（期間に関係なく、集計から除く） */
   undated: number;
   /** 割り算に使った日数・月数（今年なら今日まで） */
@@ -118,9 +120,18 @@ function round1(value: number): number {
 }
 
 /** 記録1件の量。ページは紙・電子で本にページ数があるとき、分はオーディオで長さがあるとき。 */
-function amountOf(record: ReadingRecord, book: Book | undefined): Amount {
+function amountOf(
+  record: ReadingRecord,
+  book: Book | undefined,
+  loggedMinutes: number,
+): Amount {
+  // オーディオは長さ（totalMinutes）を使い、なければ進捗ログの分の合計を使う
   if (record.format === 'audiobook')
-    return { count: 1, pages: 0, minutes: record.totalMinutes ?? 0 };
+    return {
+      count: 1,
+      pages: 0,
+      minutes: record.totalMinutes ?? loggedMinutes,
+    };
   return { count: 1, pages: book?.pageCount ?? 0, minutes: 0 };
 }
 
@@ -134,6 +145,13 @@ export function computeStats(
   today: string,
 ): Stats {
   const books = new Map(data.books.map((b) => [b.id, b]));
+  const loggedMinutes = new Map<string, number>();
+  for (const log of data.logs)
+    if (log.minutes)
+      loggedMinutes.set(
+        log.recordId,
+        (loggedMinutes.get(log.recordId) ?? 0) + log.minutes,
+      );
   const finishedRecords = data.records.filter((r) => r.status === 'finished');
   const dated = finishedRecords.filter(
     (r): r is ReadingRecord & { finishedAt: string } => !!r.finishedAt,
@@ -161,6 +179,7 @@ export function computeStats(
   const finished = { ...zero(), uniqueBooks: 0, byFormat: byFormat() };
   let pagesMissing = 0;
   let minutesMissing = 0;
+  const minutesMissingIds: string[] = [];
   const ratings: Stats['ratings'] = [0, 0, 0, 0, 0, 0];
   const ndcCounts = new Map<number, number>();
   let unclassified = 0;
@@ -196,12 +215,15 @@ export function computeStats(
 
   for (const record of inRange) {
     const book = books.get(record.bookId);
-    const amount = amountOf(record, book);
+    const amount = amountOf(record, book, loggedMinutes.get(record.id) ?? 0);
     add(finished, amount);
     add(finished.byFormat[record.format], amount);
     uniqueBooks.add(record.bookId);
     if (record.format === 'audiobook') {
-      if (!record.totalMinutes) minutesMissing++;
+      if (amount.minutes === 0) {
+        minutesMissing++;
+        minutesMissingIds.push(record.id);
+      }
     } else if (!book?.pageCount) pagesMissing++;
     ratings[record.rating ?? 0]++;
     const code = book?.ndc ? Number(book.ndc.trim()[0]) : NaN;
@@ -272,6 +294,7 @@ export function computeStats(
     finished,
     pagesMissing,
     minutesMissing,
+    minutesMissingIds,
     undated,
     days,
     months,
