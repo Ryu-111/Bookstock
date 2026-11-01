@@ -17,6 +17,7 @@ import type { Route } from './ui/route.js';
 import { Search } from './ui/search.js';
 import type { SaveHandler } from './ui/search.js';
 import { Shelf } from './ui/shelf.js';
+import { StatsPage } from './ui/stats.js';
 
 type State =
   | { kind: 'loading' }
@@ -51,6 +52,7 @@ function useRoute(): Route {
 const TABS = [
   ['shelf', '本棚', 'shelf'],
   ['add', '登録', 'add'],
+  ['stats', '統計', 'stats'],
   ['settings', '設定', 'settings'],
 ] as const;
 
@@ -173,6 +175,7 @@ export function App() {
           </p>
         )}
         {route.page === 'shelf' && <Shelf data={state.data} />}
+        {route.page === 'stats' && <StatsPage data={state.data} />}
         {route.page === 'add' && <Search onSave={onSave} rakuten={rakuten} />}
         {route.page === 'record' && (
           <RecordPage
