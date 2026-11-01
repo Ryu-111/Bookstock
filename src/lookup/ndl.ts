@@ -6,6 +6,7 @@ import {
   text,
 } from '../domain/guard.js';
 import { toIsbn13 } from '../domain/isbn.js';
+import type { SearchField } from './http.js';
 
 const BASE = 'https://ndlsearch.ndl.go.jp/api/opensearch';
 const NS = {
@@ -33,8 +34,9 @@ export function ndlIsbnUrl(isbn13: string): string {
   return `${BASE}?isbn=${encodeURIComponent(isbn13)}`;
 }
 
-export function ndlTitleUrl(query: string): string {
-  return `${BASE}?title=${encodeURIComponent(query)}&cnt=20`;
+export function ndlSearchUrl(field: SearchField, query: string): string {
+  const param = field === 'author' ? 'creator' : 'title';
+  return `${BASE}?${param}=${encodeURIComponent(query)}&cnt=20`;
 }
 
 export function ndlThumbnailUrl(isbn13: string): string {

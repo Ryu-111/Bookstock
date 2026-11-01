@@ -3,12 +3,12 @@ import type { BookCandidate } from '../domain/book.js';
 import { toIsbn13 } from '../domain/isbn.js';
 import { emptyManualFields } from '../domain/manual.js';
 import type { ManualFields } from '../domain/manual.js';
-import { lookupIsbn, searchTitle } from '../lookup/index.js';
-import type { Attempt, LookupDeps } from '../lookup/index.js';
+import { lookupIsbn, searchBooks } from '../lookup/index.js';
+import type { Attempt, LookupDeps, SearchField } from '../lookup/index.js';
 import type { RakutenConfig } from '../lookup/rakuten.js';
 import { browserXmlParser } from '../lookup/ndl.js';
 import { Cover } from './cover.js';
-import { Icon } from './ios.js';
+import { Icon, Segmented } from './ios.js';
 import { outcomeLabel, sourceLabel } from './labels.js';
 import { ManualForm } from './manual-form.js';
 import { SaveForm } from './save-form.js';
@@ -46,13 +46,19 @@ function Attempts({ attempts }: { attempts: Attempt[] }) {
   );
 }
 
-/** 検索語から手入力フォームの初期値を作る。ISBNならISBN欄、それ以外はタイトル欄に入れる。 */
-function manualInitial(query: string): ManualFields {
+/** 検索語から手入力フォームの初期値を作る。ISBNならISBN欄、著者検索なら著者欄、それ以外はタイトル欄に入れる。 */
+function manualInitial(query: string, field: SearchField): ManualFields {
   const isbn = toIsbn13(query);
-  return isbn
-    ? { ...emptyManualFields, isbn }
+  if (isbn) return { ...emptyManualFields, isbn };
+  return field === 'author'
+    ? { ...emptyManualFields, authors: query.trim() }
     : { ...emptyManualFields, title: query.trim() };
 }
+
+const FIELDS: readonly (readonly [SearchField, string])[] = [
+  ['title', 'タイトル'],
+  ['author', '著者'],
+];
 
 export function Search({
   onSave,
@@ -67,12 +73,13 @@ export function Search({
     rakuten,
   };
   const [query, setQuery] = useState('');
+  const [field, setField] = useState<SearchField>('title');
   const [state, setState] = useState<State>({ kind: 'idle' });
   const [scanning, setScanning] = useState(false);
   const [manual, setManual] = useState<ManualFields>();
   const [selected, setSelected] = useState<BookCandidate>();
 
-  /** ISBNとして正しければISBNで、そうでなければタイトルで検索する。 */
+  /** ISBNとして正しければISBNで、そうでなければ選んだ対象（タイトル・著者）で検索する。 */
   async function search(input = query) {
     if (!input.trim()) return;
     setManual(undefined);
@@ -92,7 +99,7 @@ export function Search({
         });
         if (result.book) setSelected(result.book);
       } else {
-        setState({ kind: 'done', ...(await searchTitle(input, deps)) });
+        setState({ kind: 'done', ...(await searchBooks(input, field, deps)) });
       }
     } catch {
       setState({ kind: 'error', message: '検索に失敗しました' });
@@ -124,12 +131,20 @@ export function Search({
           <input
             type="search"
             enterKeyHint="search"
-            aria-label="ISBNまたはタイトル"
+            aria-label="ISBN・タイトル・著者"
             value={query}
             onInput={(e) => setQuery(e.currentTarget.value)}
-            placeholder="ISBN・タイトルで検索"
+            placeholder={
+              field === 'author' ? '著者名で検索' : 'ISBN・タイトルで検索'
+            }
           />
         </label>
+        <Segmented
+          label="検索の対象"
+          options={FIELDS}
+          value={field}
+          onChange={setField}
+        />
       </form>
       <div class="action-row">
         <button
@@ -146,7 +161,7 @@ export function Search({
           class="button-tinted"
           onClick={() => {
             setSelected(undefined);
-            setManual(manualInitial(query));
+            setManual(manualInitial(query, field));
           }}
         >
           手入力
@@ -180,7 +195,7 @@ export function Search({
               <button
                 type="button"
                 class="button-plain"
-                onClick={() => setManual(manualInitial(query))}
+                onClick={() => setManual(manualInitial(query, field))}
               >
                 手入力で登録する
               </button>

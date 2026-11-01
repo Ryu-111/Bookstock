@@ -73,9 +73,24 @@ await test('rakutenError: エラー応答の説明を取り出す', () => {
     ),
     'wrong_parameter: specify valid applicationId',
   );
-  assert.equal(rakutenError('{"Items":[]}'), undefined);
-  assert.equal(rakutenError('not json'), undefined);
+  // 知らない形のJSONは、原因を調べやすいよう本文をそのまま返す
+  assert.equal(rakutenError('{"Items":[]}'), '{"Items":[]}');
+  assert.equal(rakutenError('not json'), 'not json'); // 読めない本文は先頭をそのまま
   assert.equal(rakutenError(undefined), undefined);
+  assert.equal(rakutenError('  '), undefined);
+  assert.equal(
+    rakutenError('{"error":{"code":"E1","message":"bad key"}}'),
+    'E1: bad key',
+  );
+  assert.equal(rakutenError('{"message":"Forbidden"}'), 'Forbidden');
+  assert.equal(rakutenError('x'.repeat(500))?.length, 120);
+  assert.equal(
+    rakutenError('{"error_description":"bad secret-key-1234"}', [
+      'secret-key-1234',
+      '',
+    ]),
+    'bad ***',
+  );
 });
 
 await test('設定の検証: 楽天以外・http・クエリ付きのURLや不正なIDは受け付けない', () => {
@@ -115,6 +130,17 @@ await test('設定の検証: 楽天以外・http・クエリ付きのURLや不�
     null,
   );
   assert.equal(parseRakutenConfig('a'), null);
+});
+
+await test('rakutenUrl: 著者検索は author で送る', () => {
+  const url = new URL(
+    rakutenUrl(
+      { applicationId: 'app', endpoint: DEFAULT_RAKUTEN_ENDPOINT },
+      { author: '山田' },
+    ),
+  );
+  assert.equal(url.searchParams.get('author'), '山田');
+  assert.equal(url.searchParams.has('title'), false);
 });
 
 await test('rakutenUrl: IDとキーをクエリにする（キーは設定時のみ）', () => {

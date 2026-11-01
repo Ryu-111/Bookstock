@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import { DOMParser } from '@xmldom/xmldom';
 import { fetchText } from '../src/lookup/http.js';
 import type { FetchLike } from '../src/lookup/http.js';
-import { lookupIsbn, searchTitle, testRakuten } from '../src/lookup/index.js';
+import { lookupIsbn, searchBooks, testRakuten } from '../src/lookup/index.js';
 import type { LookupDeps } from '../src/lookup/index.js';
 import { parseNdl } from '../src/lookup/ndl.js';
 
@@ -145,7 +145,7 @@ await test('lookupIsbn: ISBNでない入力（書籍JANの2段目など）はfet
   assert.deepEqual(calls, []);
 });
 
-await test('searchTitle: 片方が失敗しても結果を返し、同じISBNはまとめる', async () => {
+await test('searchBooks（タイトル）: 片方が失敗しても結果を返し、同じISBNはまとめる', async () => {
   const google = JSON.stringify({
     items: [
       {
@@ -163,7 +163,7 @@ await test('searchTitle: 片方が失敗しても結果を返し、同じISBNは
     [NDL]: { status: 200, body: fixture('ndl.xml') },
     [GOOGLE]: { status: 200, body: google },
   });
-  const merged = await searchTitle('テスト', deps(both.fetch));
+  const merged = await searchBooks('テスト', 'title', deps(both.fetch));
   assert.equal(merged.books.length, 2);
   assert.equal(merged.books[0]?.source, 'ndl');
 
@@ -171,7 +171,7 @@ await test('searchTitle: 片方が失敗しても結果を返し、同じISBNは
     [NDL]: 'throw',
     [GOOGLE]: { status: 200, body: google },
   });
-  const partial = await searchTitle('テスト', deps(ndlDown.fetch));
+  const partial = await searchBooks('テスト', 'title', deps(ndlDown.fetch));
   assert.deepEqual(
     partial.books.map((b) => b.source),
     ['google'],
@@ -182,7 +182,7 @@ await test('searchTitle: 片方が失敗しても結果を返し、同じISBNは
   ]);
 
   const empty = stub({});
-  assert.deepEqual(await searchTitle('  ', deps(empty.fetch)), {
+  assert.deepEqual(await searchBooks('  ', 'title', deps(empty.fetch)), {
     books: [],
     attempts: [],
   });
@@ -241,7 +241,7 @@ await test('lookupIsbn: 楽天の設定がなければ呼ばない。IDエラー
   assert.deepEqual(result.attempts[0], {
     source: 'rakuten',
     outcome: 'auth',
-    detail: 'wrong_parameter: specify valid applicationId',
+    detail: 'HTTP 400: wrong_parameter: specify valid applicationId',
   });
   const t = await testRakuten(rakuten, deps(bad.fetch));
   assert.equal(t.outcome, 'auth');
@@ -267,6 +267,50 @@ await test('lookupIsbn: 楽天の設定がなければ呼ばない。IDエラー
   assert.deepEqual(p, {
     source: 'rakuten',
     outcome: 'http',
-    detail: 'wrong_parameter: hits must be 1-30',
+    detail: 'HTTP 400: wrong_parameter: hits must be 1-30',
   });
+});
+
+await test('searchBooks（著者）: 3つのAPIに著者の条件で問い合わせる', async () => {
+  const urls: string[] = [];
+  const fetch: FetchLike = (url) => {
+    urls.push(url);
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      text: () => Promise.resolve('{}'),
+    });
+  };
+  await searchBooks(' 山田 太郎 ', 'author', { ...deps(fetch), rakuten });
+  const params = urls.map((u) => new URL(u));
+  assert.equal(params[0]?.searchParams.get('author'), '山田 太郎');
+  assert.equal(params[0]?.searchParams.has('title'), false);
+  assert.equal(params[1]?.searchParams.get('creator'), '山田 太郎');
+  assert.equal(params[2]?.searchParams.get('q'), 'inauthor:山田 太郎');
+});
+
+await test('楽天: 403で想定外の本文なら、許可サイトのエラーとしてステータスと本文を出し、IDは伏せ字にする', async () => {
+  const id = '03d9d44a-0000-0000-0000-000000000000';
+  const forbidden = stub({
+    [RAKUTEN]: {
+      status: 403,
+      body: `{"errors":{"errorCode":403,"errorMessage":"Referer not allowed for ${id}"}}`,
+    },
+  });
+  const a = await testRakuten(
+    { ...rakuten, applicationId: id },
+    deps(forbidden.fetch),
+  );
+  assert.equal(a.outcome, 'auth');
+  assert.equal(a.detail, 'HTTP 403: Referer not allowed for ***');
+  const html = stub({
+    [RAKUTEN]: {
+      status: 403,
+      body: '<html><body><h1>Forbidden</h1></body></html>',
+    },
+  });
+  assert.equal(
+    (await testRakuten(rakuten, deps(html.fetch))).detail,
+    'HTTP 403: Forbidden',
+  );
 });

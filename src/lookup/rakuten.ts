@@ -65,7 +65,7 @@ export function parseRakutenConfig(value: unknown): RakutenConfig | null {
 
 export function rakutenUrl(
   config: RakutenConfig,
-  query: { isbn: string } | { title: string },
+  query: { isbn: string } | { title: string } | { author: string },
 ): string {
   const params = new URLSearchParams({
     format: 'json',
@@ -77,6 +77,7 @@ export function rakutenUrl(
   });
   if (config.accessKey) params.set('accessKey', config.accessKey);
   if ('isbn' in query) params.set('isbn', query.isbn);
+  else if ('author' in query) params.set('author', query.author);
   else params.set('title', query.title);
   return `${config.endpoint}?${params.toString()}`;
 }
@@ -137,17 +138,56 @@ export function isRakutenAuthError(
   return status === 400 && /applicationId|accessKey/i.test(detail ?? '');
 }
 
-/** エラー応答（{"error": "...", "error_description": "..."}）の説明文。 */
-export function rakutenError(body: string | undefined): string | undefined {
-  if (!body) return undefined;
+/** 送った秘密の値を伏せ字にする（画面やスクリーンショットに残さないため）。 */
+function redact(value: string, secrets: readonly string[]): string {
+  return secrets
+    .filter((v) => v.length >= 4)
+    .reduce((acc, v) => acc.split(v).join('***'), value);
+}
+
+/** 本文から説明を探す。ドキュメントの形 {error, error_description} 以外にも対応する。 */
+function describe(data: unknown): string | undefined {
+  if (!isObject(data)) return undefined;
+  const code = text(data.error);
+  const description = text(data.error_description);
+  if (code || description)
+    return [code, description].filter(Boolean).join(': ');
+  if (isObject(data.error))
+    return (
+      [text(data.error.code), text(data.error.message)]
+        .filter(Boolean)
+        .join(': ') || undefined
+    );
+  if (isObject(data.errors))
+    return (
+      [text(data.errors.errorCode), text(data.errors.errorMessage)]
+        .filter(Boolean)
+        .join(': ') || undefined
+    );
+  return text(data.message) ?? text(data.Message);
+}
+
+/**
+ * エラー応答の説明文。JSONとして読めなければ、本文の先頭を短く切って返す。
+ * secrets（アプリID・アクセスキー）は伏せ字にする。
+ */
+export function rakutenError(
+  body: string | undefined,
+  secrets: readonly string[] = [],
+): string | undefined {
+  if (!body?.trim()) return undefined;
+  let found: string | undefined;
   try {
-    const data: unknown = JSON.parse(body);
-    if (!isObject(data)) return undefined;
-    const description = text(data.error_description);
-    const code = text(data.error);
-    if (!description && !code) return undefined;
-    return [code, description].filter(Boolean).join(': ').slice(0, 200);
+    found = describe(JSON.parse(body));
   } catch {
-    return undefined;
+    found = undefined;
   }
+  const raw =
+    found ??
+    body
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 120);
+  return raw ? redact(raw, secrets).slice(0, 200) : undefined;
 }
