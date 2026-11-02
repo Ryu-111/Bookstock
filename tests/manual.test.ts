@@ -271,3 +271,27 @@ await test('changeFormat: 紙はサービスと長さを外し、オーディオ
   });
   assert.equal(changeFormat(audio, 'audiobook').totalMinutes, 600);
 });
+
+await test('changeFormat: オーディオにするとき、長さが空なら指定の値を入れ、あれば変えない', () => {
+  const paper: ReadingRecord = {
+    id: 'p',
+    bookId: 'b',
+    format: 'paper',
+    status: 'finished',
+    tags: [],
+    createdAt: current.createdAt,
+    updatedAt: current.updatedAt,
+  };
+  assert.equal(
+    changeFormat(paper, 'audiobook', undefined, 510).totalMinutes,
+    510,
+  );
+  assert.equal(
+    changeFormat(current, 'audiobook', undefined, 510).totalMinutes,
+    600,
+  );
+  assert.equal(
+    changeFormat(paper, 'ebook', undefined, 510).totalMinutes,
+    undefined,
+  );
+});

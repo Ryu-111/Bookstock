@@ -258,12 +258,16 @@ export function changeFormat(
   record: ReadingRecord,
   format: Format,
   platform?: string,
+  /** オーディオにするとき、長さが空なら入れる値（ページ数からの推定など） */
+  fillMinutes?: number,
 ): ReadingRecord {
   const { platform: currentPlatform, totalMinutes, ...rest } = record;
   const next: ReadingRecord = { ...rest, format };
   const service = text(platform) ?? currentPlatform;
   if (format !== 'paper' && service) next.platform = service;
-  if (format === 'audiobook' && totalMinutes !== undefined)
-    next.totalMinutes = totalMinutes;
+  if (format === 'audiobook') {
+    const minutes = totalMinutes ?? fillMinutes;
+    if (minutes !== undefined) next.totalMinutes = minutes;
+  }
   return next;
 }

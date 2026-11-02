@@ -65,9 +65,11 @@ await test('年の境界: 12/31は前年、1/1は今年。読了日のない記�
   assert.equal(s.finished.uniqueBooks, 3);
   assert.equal(s.finished.byFormat.audiobook.count, 2);
   assert.equal(s.finished.pages, 200);
-  assert.equal(s.finished.minutes, 600);
+  assert.equal(s.finished.minutes, 600 + 510); // 長さのない1件は300ページ×1.7分で推定
   assert.equal(s.pagesMissing, 1);
-  assert.equal(s.minutesMissing, 1);
+  assert.equal(s.minutesMissing, 0);
+  assert.equal(s.minutesEstimated, 1);
+  assert.equal(s.estimatedMinutes, 510);
   assert.equal(s.undated, 1);
   const prev = computeStats(data, { kind: 'year', year: 2025 }, '2026-10-31');
   assert.equal(prev.finished.count, 1);
@@ -153,7 +155,7 @@ await test('空のデータでも0を返す', () => {
   assert.equal(future.pagesPerDay, 0);
 });
 
-await test('聴いた時間: 長さがなければ進捗の分を使い、長さがあれば長さを優先する', () => {
+await test('聴いた時間: 長さ → 進捗の分 → ページ数からの推定の順に使う', () => {
   const d: ExportFile = {
     ...data,
     records: [
@@ -165,6 +167,7 @@ await test('聴いた時間: 長さがなければ進捗の分を使い、長さ
         totalMinutes: 300,
       }),
       rec('a', { id: 'x3', format: 'audiobook', finishedAt: '2026-05-03' }),
+      rec('c', { id: 'x4', format: 'audiobook', finishedAt: '2026-05-04' }),
     ],
     logs: [
       { id: 'm1', recordId: 'x1', date: '2026-04-30', minutes: 40 },
@@ -173,8 +176,11 @@ await test('聴いた時間: 長さがなければ進捗の分を使い、長さ
     ],
   };
   const s = computeStats(d, { kind: 'year', year: 2026 }, '2026-10-31');
-  assert.equal(s.finished.minutes, 60 + 300);
-  assert.equal(s.buckets[4]?.total.minutes, 360);
+  // x1は進捗の分、x2は長さ（進捗より優先）、x3はページ数から推定、x4はページ数もなく0
+  assert.equal(s.finished.minutes, 60 + 300 + 510);
+  assert.equal(s.buckets[4]?.total.minutes, 870);
+  assert.equal(s.minutesEstimated, 1);
+  assert.deepEqual(s.minutesEstimatedIds, ['x3']);
   assert.equal(s.minutesMissing, 1);
-  assert.deepEqual(s.minutesMissingIds, ['x3']);
+  assert.deepEqual(s.minutesMissingIds, ['x4']);
 });

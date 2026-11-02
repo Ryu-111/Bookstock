@@ -6,6 +6,7 @@ import type {
   NewRecord,
   ReadingRecord,
 } from '../domain/book.js';
+import { estimateMinutes } from '../domain/audio.js';
 import { oneOf } from '../domain/guard.js';
 import {
   applyBookEdit,
@@ -20,6 +21,7 @@ import type {
   RecordEditFields,
 } from '../domain/manual.js';
 import { Cover } from './cover.js';
+import { formatMinutes } from './stats.js';
 import { Cell, Group, Icon, Segmented, Stars } from './ios.js';
 import { formatLabel, sourceLabel, statusLabel, todayLocal } from './labels.js';
 import { BookFields } from './manual-form.js';
@@ -108,11 +110,19 @@ function BookInfo({ book, actions }: { book: Book; actions: RecordActions }) {
   );
 }
 
+/** Audibleの検索ページ（タイトルと著者で探す）。 */
+export function audibleSearchUrl(book: Book): string {
+  const keywords = [book.title, book.authors[0]].filter(Boolean).join(' ');
+  return `https://www.audible.co.jp/search?keywords=${encodeURIComponent(keywords)}`;
+}
+
 function RecordForm({
   record,
+  book,
   actions,
 }: {
   record: ReadingRecord;
+  book: Book;
   actions: RecordActions;
 }) {
   const [fields, setFields] = useState<RecordEditFields>(() =>
@@ -139,6 +149,7 @@ function RecordForm({
         update({ [key]: t.value });
     };
   const format = oneOf(FORMATS, fields.format) ?? 'paper';
+  const estimate = estimateMinutes(book.pageCount);
 
   return (
     <form
@@ -204,11 +215,37 @@ function RecordForm({
           <Cell label="長さ（分）">
             <input
               inputMode="numeric"
-              placeholder="任意"
+              placeholder={estimate ? `推定 ${estimate}` : '任意'}
               value={fields.totalMinutes}
               onInput={input('totalMinutes')}
             />
           </Cell>
+        )}
+        {format === 'audiobook' && (
+          <div class="cell cell-hint">
+            <span class="footnote">
+              {estimate
+                ? `推定 約${formatMinutes(estimate)}（${book.pageCount}ページから）`
+                : 'ページ数がないため推定できません'}
+            </span>
+            {estimate && !fields.totalMinutes.trim() && (
+              <button
+                type="button"
+                class="button-plain"
+                onClick={() => update({ totalMinutes: String(estimate) })}
+              >
+                推定値を入れる
+              </button>
+            )}
+            <a
+              class="button-plain"
+              href={audibleSearchUrl(book)}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Audibleで探す
+            </a>
+          </div>
         )}
         <Cell label="タグ">
           <input
@@ -351,7 +388,12 @@ export function RecordPage({
     <section>
       {back}
       <BookInfo key={book.id} book={book} actions={actions} />
-      <RecordForm key={record.id} record={record} actions={actions} />
+      <RecordForm
+        key={record.id}
+        record={record}
+        book={book}
+        actions={actions}
+      />
       <Logs record={record} data={data} actions={actions} />
       <Group header="この本のほかの記録" label="この本のほかの記録">
         {siblings.map((r) => (

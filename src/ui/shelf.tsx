@@ -41,7 +41,8 @@ function Chips<T extends string>({
 export type ChangeFormat = (
   ids: string[],
   format: Format,
-  platform?: string,
+  platform: string | undefined,
+  fillEstimate: boolean,
 ) => Promise<boolean>;
 
 /** 下から出るシート。選んだ記録の形式をまとめて変える。 */
@@ -51,11 +52,16 @@ function FormatSheet({
   onClose,
 }: {
   count: number;
-  onApply: (format: Format, platform?: string) => Promise<boolean>;
+  onApply: (
+    format: Format,
+    platform: string | undefined,
+    fillEstimate: boolean,
+  ) => Promise<boolean>;
   onClose: () => void;
 }) {
   const [format, setFormat] = useState<Format>('audiobook');
   const [platform, setPlatform] = useState('');
+  const [fillEstimate, setFillEstimate] = useState(false);
   const [busy, setBusy] = useState(false);
   return (
     <div
@@ -77,9 +83,11 @@ function FormatSheet({
           )
             return;
           setBusy(true);
-          void onApply(format, platform.trim() || undefined).finally(() =>
-            setBusy(false),
-          );
+          void onApply(
+            format,
+            platform.trim() || undefined,
+            format === 'audiobook' && fillEstimate,
+          ).finally(() => setBusy(false));
         }}
       >
         <div class="sheet-head">
@@ -117,6 +125,19 @@ function FormatSheet({
                 onInput={(e) => setPlatform(e.currentTarget.value)}
               />
             </Cell>
+          )}
+          {format === 'audiobook' && (
+            <label class="cell">
+              <span class="cell-label cell-grow">
+                長さが空の本に推定値を入れる
+              </span>
+              <input
+                type="checkbox"
+                class="switch"
+                checked={fillEstimate}
+                onChange={(e) => setFillEstimate(e.currentTarget.checked)}
+              />
+            </label>
           )}
         </Group>
         <button type="submit" class="button-filled" disabled={busy}>
@@ -316,8 +337,13 @@ export function Shelf({
         <FormatSheet
           count={selected.size}
           onClose={() => setSheet(false)}
-          onApply={async (format, platform) => {
-            const ok = await onChangeFormat([...selected], format, platform);
+          onApply={async (format, platform, fillEstimate) => {
+            const ok = await onChangeFormat(
+              [...selected],
+              format,
+              platform,
+              fillEstimate,
+            );
             if (ok) {
               setSheet(false);
               setSelected(null);
