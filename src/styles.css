@@ -1272,3 +1272,145 @@ textarea::placeholder {
   width: 51px;
   text-align: left;
 }
+
+/* ---- 読み方のタイプ・読書マップ ---- */
+.insight {
+  margin: 0 0 24px;
+}
+
+.headline {
+  margin: 4px 0 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--tint);
+}
+
+.type-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (min-width: 600px) {
+  .type-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.type-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--cell);
+}
+
+.type-card strong {
+  font-size: 17px;
+}
+
+.type-card.hit strong {
+  color: var(--tint);
+}
+
+.type-card span {
+  color: var(--secondary);
+  font-size: 13px;
+}
+
+.chaos-map {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.region {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--cell);
+  text-align: left;
+  border-top: 4px solid var(--region, var(--tertiary));
+}
+
+.region-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.region-head strong {
+  font-size: 17px;
+}
+
+.region-head span,
+.division-name,
+.more {
+  color: var(--secondary);
+  font-size: 12px;
+}
+
+.division {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mini-covers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.mini-covers .cover {
+  width: 28px;
+  border-radius: 2px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+.mini-covers .cover-text {
+  padding: 1px;
+  font-size: 6px;
+  font-weight: 500;
+}
+
+/* 区画の色: 類ごとの帯。名前と冊数を文字で書くので、色だけで区別させない */
+.region-0 {
+  --region: #8e8e93;
+}
+.region-1 {
+  --region: #af52de;
+}
+.region-2 {
+  --region: #a2845e;
+}
+.region-3 {
+  --region: #007aff;
+}
+.region-4 {
+  --region: #34c759;
+}
+.region-5 {
+  --region: #5ac8fa;
+}
+.region-6 {
+  --region: #ffcc00;
+}
+.region-7 {
+  --region: #ff2d55;
+}
+.region-8 {
+  --region: #5856d6;
+}
+.region-9 {
+  --region: #ff9500;
+}
+.region-none {
+  --region: var(--tertiary);
+}
