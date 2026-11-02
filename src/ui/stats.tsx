@@ -3,6 +3,7 @@ import { FORMATS, STATUSES } from '../domain/book.js';
 import type { ExportFile } from '../domain/book.js';
 import { computeStats } from '../domain/stats.js';
 import type { Amount, Bucket, Period, Stats } from '../domain/stats.js';
+import { Diagnosis, ReadingMap } from './insights.js';
 import { Group, Icon, Segmented } from './ios.js';
 import { formatShortLabel, statusLabel, todayLocal } from './labels.js';
 import { href } from './route.js';
@@ -503,6 +504,9 @@ export function StatsPage({ data }: { data: ExportFile }) {
             : {})}
         />
       </div>
+
+      <Diagnosis data={data} period={period} />
+      <ReadingMap data={data} period={period} />
 
       <Group
         header={stats.granularity === 'year' ? '年別の読了' : '月別の読了'}

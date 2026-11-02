@@ -10,6 +10,7 @@ import {
 } from './storage/settings.js';
 import type { Persistence } from './storage/settings.js';
 import { DataPanel } from './ui/data.js';
+import { EnrichPanel } from './ui/enrich-panel.js';
 import { RakutenSettings } from './ui/rakuten-settings.js';
 import { RecommendPage } from './ui/recommend.js';
 import { RecordPage } from './ui/record-page.js';
@@ -223,6 +224,15 @@ export function App() {
                 await repo.importFile(file, mode);
                 setState({ kind: 'ready', repo, data: await repo.snapshot() });
               }}
+            />
+            <EnrichPanel
+              data={state.data}
+              onUpdateBook={async (book) => {
+                await repo.updateBook(book);
+              }}
+              onFinish={async () =>
+                setState({ kind: 'ready', repo, data: await repo.snapshot() })
+              }
             />
             <RakutenSettings
               config={rakuten}
