@@ -184,9 +184,9 @@ export function App() {
         {route.page === 'shelf' && (
           <Shelf
             data={state.data}
-            onChangeFormat={(ids, format, platform) =>
+            onChangeFormat={(ids, format, platform, fillEstimate) =>
               run(
-                () => repo.changeFormat(ids, format, platform),
+                () => repo.changeFormat(ids, format, platform, fillEstimate),
                 `${ids.length}冊を${formatLabel[format]}に変更しました`,
               )
             }

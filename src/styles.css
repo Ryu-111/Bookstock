@@ -1209,3 +1209,66 @@ textarea::placeholder {
   min-width: 0;
   flex: 1;
 }
+
+.cell-hint {
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.cell-hint .footnote {
+  flex: 1 1 100%;
+  margin: 0;
+}
+
+.cell-hint .button-plain {
+  min-height: 36px;
+  font-size: 15px;
+}
+
+/* iOS風のスイッチ */
+.switch {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: none;
+  width: 51px;
+  height: 31px;
+  margin-left: auto;
+  border-radius: 16px;
+  background: var(--fill-strong);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s;
+}
+
+.switch:checked {
+  background: #34c759;
+}
+
+.switch:checked::after {
+  transform: translateX(20px);
+}
+
+.cell-grow {
+  flex: 1;
+  min-width: 0;
+  white-space: normal;
+}
+
+.cell > input.switch {
+  flex: none;
+  width: 51px;
+  text-align: left;
+}

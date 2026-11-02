@@ -8,6 +8,7 @@ import type {
   ReadingLog,
   ReadingRecord,
 } from '../domain/book.js';
+import { estimateMinutes } from '../domain/audio.js';
 import { changeFormat } from '../domain/manual.js';
 import type { NewLog } from '../domain/manual.js';
 import {
@@ -245,16 +246,32 @@ export class Repository {
     ids: readonly string[],
     format: Format,
     platform?: string,
+    /** オーディオにするとき、長さが空の記録にページ数からの推定値を入れる */
+    fillEstimate = false,
   ): Promise<number> {
-    return this.write(['records'], async (tx) => {
+    return this.write(['records', 'books'], async (tx) => {
       const now = this.clock.now().toISOString();
       const next: ReadingRecord[] = [];
       for (const id of new Set(ids)) {
         const current = await this.getRecord(tx, id);
+        let estimate: number | undefined;
+        if (fillEstimate && format === 'audiobook' && !current.totalMinutes) {
+          const book: unknown = await promisify(
+            tx.objectStore('books').get(current.bookId),
+          );
+          const checked =
+            book === undefined ? undefined : validateBook(book, 'book');
+          estimate = checked?.ok
+            ? estimateMinutes(checked.value.pageCount)
+            : undefined;
+        }
         next.push(
           valid(
             validateRecord(
-              { ...changeFormat(current, format, platform), updatedAt: now },
+              {
+                ...changeFormat(current, format, platform, estimate),
+                updatedAt: now,
+              },
               'record',
             ),
           ),

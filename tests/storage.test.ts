@@ -370,3 +370,37 @@ await test('changeFormat: 複数件の形式をまとめて変え、存在しな
   data = await r.snapshot();
   assert.equal(data.records[0]?.format, 'audiobook');
 });
+
+await test('changeFormat（推定値）: 長さが空の記録にだけ、ページ数からの推定を入れる', async () => {
+  const r = await repo();
+  const a = await r.addRecord(candidate, {
+    format: 'paper',
+    status: 'finished',
+    finishedAt: '2026-10-01',
+  });
+  const b = await r.addRecord(
+    { title: '長さのある本', authors: [], source: 'manual', pageCount: 100 },
+    {
+      format: 'audiobook',
+      status: 'finished',
+      finishedAt: '2026-10-01',
+      totalMinutes: 42,
+    },
+  );
+  const c = await r.addRecord(
+    { title: 'ページ数のない本', authors: [], source: 'manual' },
+    { format: 'paper', status: 'want' },
+  );
+  await r.changeFormat(
+    [a.record.id, b.record.id, c.record.id],
+    'audiobook',
+    undefined,
+    true,
+  );
+  const minutes = new Map(
+    (await r.snapshot()).records.map((x) => [x.id, x.totalMinutes]),
+  );
+  assert.equal(minutes.get(a.record.id), 544); // 320ページ × 1.7
+  assert.equal(minutes.get(b.record.id), 42);
+  assert.equal(minutes.get(c.record.id), undefined);
+});

@@ -1,3 +1,4 @@
+import { estimateMinutes } from './audio.js';
 import { STATUSES } from './book.js';
 import type {
   Book,
@@ -51,8 +52,12 @@ export interface Stats {
   pagesMissing: number;
   /** オーディオの読了で、長さも進捗の分もない記録の数 */
   minutesMissing: number;
-  /** 長さも進捗の分もないオーディオの読了記録のid */
+  /** 長さ・進捗の分・ページ数のどれもないオーディオの読了記録のid */
   minutesMissingIds: string[];
+  /** ページ数から長さを推定して数えた記録の数・分・id */
+  minutesEstimated: number;
+  estimatedMinutes: number;
+  minutesEstimatedIds: string[];
   /** 読了なのに読了日がない記録の数（期間に関係なく、集計から除く） */
   undated: number;
   /** 割り算に使った日数・月数（今年なら今日まで） */
@@ -120,19 +125,23 @@ function round1(value: number): number {
 }
 
 /** 記録1件の量。ページは紙・電子で本にページ数があるとき、分はオーディオで長さがあるとき。 */
-function amountOf(
+/** オーディオの分の出どころ。 */
+type MinutesSource = 'length' | 'logs' | 'estimate' | 'none';
+
+/**
+ * オーディオの分を、長さ（totalMinutes）→ 進捗ログの分 → ページ数からの推定 の順で決める。
+ */
+function audioMinutes(
   record: ReadingRecord,
   book: Book | undefined,
   loggedMinutes: number,
-): Amount {
-  // オーディオは長さ（totalMinutes）を使い、なければ進捗ログの分の合計を使う
-  if (record.format === 'audiobook')
-    return {
-      count: 1,
-      pages: 0,
-      minutes: record.totalMinutes ?? loggedMinutes,
-    };
-  return { count: 1, pages: book?.pageCount ?? 0, minutes: 0 };
+): { minutes: number; source: MinutesSource } {
+  if (record.totalMinutes)
+    return { minutes: record.totalMinutes, source: 'length' };
+  if (loggedMinutes > 0) return { minutes: loggedMinutes, source: 'logs' };
+  const estimated = estimateMinutes(book?.pageCount);
+  if (estimated) return { minutes: estimated, source: 'estimate' };
+  return { minutes: 0, source: 'none' };
 }
 
 /**
@@ -180,6 +189,9 @@ export function computeStats(
   let pagesMissing = 0;
   let minutesMissing = 0;
   const minutesMissingIds: string[] = [];
+  let minutesEstimated = 0;
+  let estimatedMinutes = 0;
+  const minutesEstimatedIds: string[] = [];
   const ratings: Stats['ratings'] = [0, 0, 0, 0, 0, 0];
   const ndcCounts = new Map<number, number>();
   let unclassified = 0;
@@ -215,14 +227,24 @@ export function computeStats(
 
   for (const record of inRange) {
     const book = books.get(record.bookId);
-    const amount = amountOf(record, book, loggedMinutes.get(record.id) ?? 0);
+    const audio =
+      record.format === 'audiobook'
+        ? audioMinutes(record, book, loggedMinutes.get(record.id) ?? 0)
+        : undefined;
+    const amount: Amount = audio
+      ? { count: 1, pages: 0, minutes: audio.minutes }
+      : { count: 1, pages: book?.pageCount ?? 0, minutes: 0 };
     add(finished, amount);
     add(finished.byFormat[record.format], amount);
     uniqueBooks.add(record.bookId);
-    if (record.format === 'audiobook') {
-      if (amount.minutes === 0) {
+    if (audio) {
+      if (audio.source === 'none') {
         minutesMissing++;
         minutesMissingIds.push(record.id);
+      } else if (audio.source === 'estimate') {
+        minutesEstimated++;
+        estimatedMinutes += audio.minutes;
+        minutesEstimatedIds.push(record.id);
       }
     } else if (!book?.pageCount) pagesMissing++;
     ratings[record.rating ?? 0]++;
@@ -295,6 +317,9 @@ export function computeStats(
     pagesMissing,
     minutesMissing,
     minutesMissingIds,
+    minutesEstimated,
+    estimatedMinutes,
+    minutesEstimatedIds,
     undated,
     days,
     months,
