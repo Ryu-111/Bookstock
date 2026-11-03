@@ -9,8 +9,9 @@ import {
 } from '../domain/guard.js';
 import { toIsbn13 } from '../domain/isbn.js';
 
-export function openbdUrl(isbn13: string): string {
-  return `https://api.openbd.jp/v1/get?isbn=${encodeURIComponent(isbn13)}`;
+export function openbdUrl(isbn13: string | readonly string[]): string {
+  const list = typeof isbn13 === 'string' ? [isbn13] : isbn13;
+  return `https://api.openbd.jp/v1/get?isbn=${list.map(encodeURIComponent).join(',')}`;
 }
 
 /** ONIXのExtent（ExtentType 11 = 本文ページ数）からページ数を取る。 */
@@ -21,6 +22,23 @@ function pageCount(onix: unknown): number | undefined {
   for (const extent of extents) {
     if (isObject(extent) && extent.ExtentType === '11')
       return positiveInt(extent.ExtentValue);
+  }
+  return undefined;
+}
+
+/** ONIXのSubject（SubjectSchemeIdentifier 78 = Cコード）から4桁のCコードを取る。 */
+function ccode(onix: unknown): string | undefined {
+  if (!isObject(onix) || !isObject(onix.DescriptiveDetail)) return undefined;
+  const subjects = onix.DescriptiveDetail.Subject;
+  if (!Array.isArray(subjects)) return undefined;
+  for (const subject of subjects) {
+    if (
+      isObject(subject) &&
+      subject.SubjectSchemeIdentifier === '78' &&
+      typeof subject.SubjectCode === 'string' &&
+      /^\d{4}$/.test(subject.SubjectCode)
+    )
+      return subject.SubjectCode;
   }
   return undefined;
 }
@@ -49,6 +67,8 @@ function parseItem(item: unknown): BookCandidate | undefined {
   if (coverUrl) book.coverUrl = coverUrl;
   const pages = pageCount(item.onix);
   if (pages) book.pageCount = pages;
+  const code = ccode(item.onix);
+  if (code) book.ccode = code;
   return book;
 }
 

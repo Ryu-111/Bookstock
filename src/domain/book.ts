@@ -17,6 +17,8 @@ export interface Book {
   pageCount?: number;
   /** 日本十進分類 */
   ndc?: string;
+  /** Cコード（出版社が付ける4桁の分類。openBDから）。NDCがない本の分類に使う */
+  ccode?: string;
   source: BookSource;
 }
 

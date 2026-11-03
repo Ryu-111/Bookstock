@@ -11,6 +11,7 @@ import {
   rakutenUrl,
 } from '../src/lookup/rakuten.js';
 import {
+  claimAutoEnrich,
   loadRakutenConfig,
   requestPersistence,
   saveRakutenConfig,
@@ -244,4 +245,15 @@ await test('requestPersistence: 許可・拒否・非対応・失敗を分ける
     }),
     'best-effort',
   );
+});
+
+await test('claimAutoEnrich: 自動の補完は1日1回。記録できない環境でも進める', () => {
+  const storage = memoryStorage();
+  const day = 24 * 60 * 60 * 1000;
+  assert.equal(claimAutoEnrich(storage, 1000), true);
+  assert.equal(claimAutoEnrich(storage, 1000 + day - 1), false);
+  assert.equal(claimAutoEnrich(storage, 1000 + day), true);
+  // 時計が戻った（保存値が未来）ときは進める
+  assert.equal(claimAutoEnrich(storage, 0), true);
+  assert.equal(claimAutoEnrich(null, 0), true);
 });

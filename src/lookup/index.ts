@@ -88,6 +88,7 @@ function fill(base: BookCandidate, extra: BookCandidate): BookCandidate {
     'coverUrl',
     'pageCount',
     'ndc',
+    'ccode',
   ] as const) {
     if (merged[key] === undefined && extra[key] !== undefined)
       Object.assign(merged, { [key]: extra[key] });

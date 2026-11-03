@@ -1,4 +1,5 @@
 import { estimateMinutes } from './audio.js';
+import { bookClass } from './ndc.js';
 import { STATUSES } from './book.js';
 import type {
   Book,
@@ -248,9 +249,8 @@ export function computeStats(
       }
     } else if (!book?.pageCount) pagesMissing++;
     ratings[record.rating ?? 0]++;
-    const code = book?.ndc ? Number(book.ndc.trim()[0]) : NaN;
-    if (Number.isInteger(code))
-      ndcCounts.set(code, (ndcCounts.get(code) ?? 0) + 1);
+    const code = book ? bookClass(book)?.classCode : undefined;
+    if (code !== undefined) ndcCounts.set(code, (ndcCounts.get(code) ?? 0) + 1);
     else unclassified++;
     const key =
       granularity === 'year'

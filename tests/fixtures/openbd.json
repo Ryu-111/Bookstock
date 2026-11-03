@@ -12,6 +12,10 @@
     },
     "onix": {
       "DescriptiveDetail": {
+        "Subject": [
+          { "SubjectSchemeIdentifier": "79", "SubjectCode": "01" },
+          { "SubjectSchemeIdentifier": "78", "SubjectCode": "0093" }
+        ],
         "Extent": [
           { "ExtentType": "11", "ExtentValue": "320", "ExtentUnit": "03" }
         ]

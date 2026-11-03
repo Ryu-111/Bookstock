@@ -404,3 +404,33 @@ await test('changeFormat（推定値）: 長さが空の記録にだけ、ペー
   assert.equal(minutes.get(b.record.id), 42);
   assert.equal(minutes.get(c.record.id), undefined);
 });
+
+await test('fillBook: 空の分類・ページ数だけを補い、利用者が入れた値は残す', async () => {
+  const r = await repo();
+  const { book } = await r.addRecord(
+    { title: '本', authors: [], isbn13: '9784003101018', source: 'manual' },
+    { format: 'paper', status: 'finished' },
+  );
+  await r.updateBook({ ...book, ndc: '913.6' });
+  const filled = await r.fillBook(book.id, {
+    ndc: '007',
+    ccode: '0193',
+    pageCount: 300,
+  });
+  assert.deepEqual(
+    [filled?.ndc, filled?.ccode, filled?.pageCount],
+    ['913.6', '0193', 300],
+  );
+  assert.equal(await r.fillBook('missing', { ccode: '0193' }), null);
+  // 不正な値は書かない（すでにある値も変えない）
+  const other = await r.addRecord(
+    { title: '別の本', authors: [], source: 'manual' },
+    { format: 'paper', status: 'finished' },
+  );
+  await assert.rejects(r.fillBook(other.book.id, { ccode: 'x' }));
+  const data = await r.snapshot();
+  assert.equal(
+    data.books.find((b) => b.id === other.book.id)?.ccode,
+    undefined,
+  );
+});
