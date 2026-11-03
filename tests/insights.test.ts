@@ -110,7 +110,7 @@ await test('readingTypes: 長編・シリーズ・推し作家・耳読書・新
   assert.equal(d.headline, '長編・新刊・シリーズタイプ');
   assert.match(
     d.types.find((t) => t.axis === 'author')?.detail ?? '',
-    /山田 太郎（6冊）/,
+    /山田 太郎 6冊/,
   );
 });
 

@@ -42,9 +42,7 @@ export function Scanner({
 
   return (
     <section aria-label="バーコード読み取り" class="scanner">
-      <p class="footnote">
-        裏表紙の、978・979で始まるバーコードを映してください
-      </p>
+      <p class="footnote">978・979で始まるバーコードを映してください</p>
       <video ref={video} playsInline muted autoPlay width={320} />
       {engine && (
         <small>

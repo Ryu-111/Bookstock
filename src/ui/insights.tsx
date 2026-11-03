@@ -20,14 +20,10 @@ export function Diagnosis({
     <section class="insight" aria-label="読み方のタイプ">
       <h2 class="rec-title">読み方のタイプ</h2>
       {!d.enough ? (
-        <p class="footnote">
-          この期間の読了が{d.count}冊なので、まだ判定できません（{MIN_BOOKS}
-          冊から）。
-        </p>
+        <p class="footnote">あと{MIN_BOOKS - d.count}冊読むと判定できます</p>
       ) : (
         <>
           <p class="headline">{d.headline}</p>
-          <p class="footnote">この期間に読了した{d.count}冊から判定しました</p>
           <div class="type-grid">
             {d.types.map((t) => (
               <div
@@ -110,14 +106,10 @@ export function ReadingMap({
   return (
     <section class="insight" aria-label="読書マップ">
       <h2 class="rec-title">読書マップ</h2>
-      <p class="footnote">
-        読了した本を分類（NDC）ごとにまとめました。広い区画ほどよく読んでいます。区画をタップすると本の一覧が開きます。
-      </p>
       {unclassified / total >= 0.3 && (
         <p class="footnote">
-          分類のない本が{unclassified}冊あります。
-          <a href={href({ page: 'settings' })}>設定の「分類を補完」</a>
-          で分類を取得できます。
+          分類なし {unclassified}冊・
+          <a href={href({ page: 'settings' })}>補完する</a>
         </p>
       )}
       <div class="chaos-map">

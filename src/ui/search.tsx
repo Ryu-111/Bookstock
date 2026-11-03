@@ -176,11 +176,6 @@ export function Search({
           onClose={() => setScanning(false)}
         />
       )}
-      {state.kind === 'idle' && !manual && !scanning && (
-        <p class="footnote">
-          バーコードをスキャンするか、ISBN・タイトルで検索します。見つからない本や、ISBNのない電子書籍・オーディオブックは手入力で登録できます。
-        </p>
-      )}
       {state.kind === 'loading' && (
         <p class="footnote" role="status">
           検索中…

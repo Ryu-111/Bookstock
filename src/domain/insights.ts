@@ -141,19 +141,19 @@ export function readingTypes(data: ExportFile, period: Period): Diagnosis {
             axis: 'length',
             label: '長編派',
             keyword: '長編',
-            detail: `ページ数の中央値 ${p}ページ`,
+            detail: `中央値 ${p}ページ`,
           }
         : p <= 220
           ? {
               axis: 'length',
               label: '薄め派',
               keyword: 'サクッと読み',
-              detail: `ページ数の中央値 ${p}ページ`,
+              detail: `中央値 ${p}ページ`,
             }
           : {
               axis: 'length',
               label: '標準的な厚さ',
-              detail: `ページ数の中央値 ${p}ページ`,
+              detail: `中央値 ${p}ページ`,
             },
     );
   }
@@ -174,19 +174,19 @@ export function readingTypes(data: ExportFile, period: Period): Diagnosis {
             axis: 'newness',
             label: '新刊派',
             keyword: '新刊',
-            detail: `出版から読むまで中央値 ${y}年`,
+            detail: `出版から${y}年で読む`,
           }
         : ages >= 10
           ? {
               axis: 'newness',
               label: '古典・ロングセラー派',
               keyword: '古典',
-              detail: `出版から読むまで中央値 ${y}年`,
+              detail: `出版から${y}年で読む`,
             }
           : {
               axis: 'newness',
               label: '新旧バランス型',
-              detail: `出版から読むまで中央値 ${y}年`,
+              detail: `出版から${y}年で読む`,
             },
     );
   }
@@ -199,12 +199,12 @@ export function readingTypes(data: ExportFile, period: Period): Diagnosis {
           axis: 'series',
           label: 'シリーズ派',
           keyword: 'シリーズ',
-          detail: `巻数のある本が ${pct(seriesShare)}`,
+          detail: `シリーズ ${pct(seriesShare)}`,
         }
       : {
           axis: 'series',
           label: '単発派',
-          detail: `巻数のある本は ${pct(seriesShare)}`,
+          detail: `シリーズ ${pct(seriesShare)}`,
         },
   );
 
@@ -217,21 +217,20 @@ export function readingTypes(data: ExportFile, period: Period): Diagnosis {
     items.filter((i) => (byAuthor.get(i.book.authors[0] ?? '') ?? 0) >= 2)
       .length / items.length;
   const top = [...byAuthor.entries()].sort((a, b) => b[1] - a[1])[0];
-  const topText =
-    top && top[1] >= 2 ? `、いちばん読んだのは${top[0]}（${top[1]}冊）` : '';
+  const topText = top && top[1] >= 2 ? `・${top[0]} ${top[1]}冊` : '';
   types.push(
     repeat >= 0.4
       ? {
           axis: 'author',
           label: '推し作家派',
           keyword: '推し作家',
-          detail: `2冊以上読んだ著者の本が ${pct(repeat)}${topText}`,
+          detail: `同じ著者 ${pct(repeat)}${topText}`,
         }
       : {
           axis: 'author',
           label: '開拓派',
           keyword: '開拓',
-          detail: `2冊以上読んだ著者の本は ${pct(repeat)}${topText}`,
+          detail: `同じ著者 ${pct(repeat)}${topText}`,
         },
   );
 
@@ -243,7 +242,7 @@ export function readingTypes(data: ExportFile, period: Period): Diagnosis {
   const classified = [...classes.values()].reduce((a, b) => a + b, 0);
   if (classified >= MIN_BOOKS) {
     const [topClass] = [...classes.entries()].sort((a, b) => b[1] - a[1]);
-    const detail = `${classes.size}ジャンル、いちばん多いのは${topClass?.[0] ?? ''}（${topClass?.[1] ?? 0}冊）`;
+    const detail = `${classes.size}ジャンル・最多は${topClass?.[0] ?? ''}`;
     types.push(
       classes.size >= 5
         ? { axis: 'genre', label: '雑食派', keyword: '雑食', detail }
@@ -254,7 +253,7 @@ export function readingTypes(data: ExportFile, period: Period): Diagnosis {
               keyword: `${topClass?.[0] ?? ''}一筋`,
               detail,
             }
-          : { axis: 'genre', label: 'いくつかのジャンルを往復', detail },
+          : { axis: 'genre', label: '数ジャンル派', detail },
     );
   }
 
@@ -268,19 +267,19 @@ export function readingTypes(data: ExportFile, period: Period): Diagnosis {
           axis: 'format',
           label: '耳読書派',
           keyword: '耳読書',
-          detail: `オーディオが ${pct(audio)}`,
+          detail: `オーディオ ${pct(audio)}`,
         }
       : ebook >= 0.5
         ? {
             axis: 'format',
             label: '電子派',
             keyword: '電子',
-            detail: `電子書籍が ${pct(ebook)}`,
+            detail: `電子 ${pct(ebook)}`,
           }
         : {
             axis: 'format',
             label: '紙中心',
-            detail: `紙 ${pct(1 - audio - ebook)}・電子 ${pct(ebook)}・オーディオ ${pct(audio)}`,
+            detail: `紙 ${pct(1 - audio - ebook)}`,
           },
   );
 

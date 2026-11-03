@@ -63,7 +63,7 @@ export function RakutenSettings({
         header="楽天ブックスAPI"
         footer={
           <>
-            設定すると、ISBN・タイトル検索で楽天ブックスを最初に使い、書影・出版日・読み仮名を取得します。値はこのブラウザにだけ保存され、JSONの書き出しには含まれません。IDは
+            検索とおすすめに使います。
             <a
               href="https://webservice.rakuten.co.jp/"
               target="_blank"
@@ -71,9 +71,8 @@ export function RakutenSettings({
             >
               楽天ウェブサービス
             </a>
-            で無料で発行できます。アプリ登録では、「アプリURL」とは別に「許可するWebサイト」へ、このページのドメイン（
-            {location.host}
-            ）を登録してください。未登録だと「IDまたは許可サイトの設定エラー」になります。
+            で発行し、「許可するWebサイト」に {location.host}{' '}
+            を登録してください。
           </>
         }
       >

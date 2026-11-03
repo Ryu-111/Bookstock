@@ -211,9 +211,7 @@ export function RecommendPage({
       <section>
         <h1 class="large-title">おすすめ</h1>
         <div class="empty">
-          <p>
-            おすすめは楽天ブックスAPIで探します。設定で楽天のアプリIDを入れてください。
-          </p>
+          <p>楽天のアプリIDを設定すると使えます</p>
           <a class="button-filled" href={href({ page: 'settings' })}>
             設定を開く
           </a>
@@ -237,12 +235,9 @@ export function RecommendPage({
   return (
     <section>
       <h1 class="large-title">おすすめ</h1>
-      <p class="footnote">
-        よく読む著者名、読んだシリーズ名、よく読むジャンルを楽天ブックスに送って探します。読書記録そのものは送らず、点数は手元で計算します。
-      </p>
       {loading && (
         <p class="footnote" role="status">
-          探しています…（楽天の制限に合わせて少しずつ読み込みます）
+          探しています…
         </p>
       )}
       {failure && (
@@ -252,19 +247,13 @@ export function RecommendPage({
       )}
 
       {forYouBooks.length > 0 && (
-        <Section
-          title="あなたへのおすすめ"
-          note="よく読む著者・ジャンル、売れ行き、新しさで点数を付けた順"
-        >
+        <Section title="あなたへのおすすめ">
           <Row books={forYouBooks} onPick={setPicked} reasons={reasons} />
         </Section>
       )}
 
       {visible(series).length > 0 && (
-        <Section
-          title="シリーズの続き"
-          note="読んだ巻の次の巻です（漫画は除きます）"
-        >
+        <Section title="シリーズの続き">
           <Row books={visible(series)} onPick={setPicked} />
         </Section>
       )}
@@ -272,11 +261,7 @@ export function RecommendPage({
       {genrePicks
         .filter((g) => visible(g.books).length > 0)
         .map((g) => (
-          <Section
-            key={g.genre.id}
-            title={`よく読む「${leafGenre(g.genre.key)}」の人気本`}
-            note={`${g.genre.count}冊読んだジャンル。売れている順`}
-          >
+          <Section key={g.genre.id} title={`${leafGenre(g.genre.key)}の人気本`}>
             <Row books={visible(g.books)} onPick={setPicked} />
           </Section>
         ))}
@@ -284,20 +269,13 @@ export function RecommendPage({
       {authors
         .filter((a) => visible(a.books).length > 0)
         .map((a) => (
-          <Section
-            key={a.author}
-            title={`${a.author}の本`}
-            note="新しい順。漫画とシリーズの巻は除きます"
-          >
+          <Section key={a.author} title={`${a.author}の本`}>
             <Row books={visible(a.books)} onPick={setPicked} />
           </Section>
         ))}
 
       {(ranking.length > 0 || genres.length > 0) && (
-        <Section
-          title="人気の本"
-          note="楽天ブックスで売れている順。漫画とシリーズの巻は除きます"
-        >
+        <Section title="人気の本">
           {genres.length > 0 && (
             <div class="chips" role="group" aria-label="ジャンル">
               <button
@@ -329,11 +307,13 @@ export function RecommendPage({
 
       {nothing && (
         <div class="empty">
-          <p>
-            おすすめが見つかりませんでした。同じ著者の本を2冊以上読むと、著者のおすすめが出ます。
-          </p>
+          <p>まだおすすめがありません。同じ著者の本を2冊読むと出ます</p>
         </div>
       )}
+
+      <p class="footnote page-note">
+        著者名・シリーズ名・ジャンルを楽天に送って探します
+      </p>
 
       {picked && (
         <BookSheet
