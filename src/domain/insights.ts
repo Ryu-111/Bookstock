@@ -1,5 +1,5 @@
 import type { Book, ExportFile, ReadingRecord } from './book.js';
-import { parseNdc } from './ndc.js';
+import { bookClass } from './ndc.js';
 import { parseVolume } from './recommend.js';
 import type { Period } from './stats.js';
 
@@ -44,7 +44,7 @@ export interface MapRegion {
 export function chaosMap(data: ExportFile, period: Period): MapRegion[] {
   const regions = new Map<number, MapRegion>();
   for (const item of finishedIn(data, period)) {
-    const ndc = parseNdc(item.book.ndc);
+    const ndc = bookClass(item.book);
     const classCode = ndc?.classCode ?? -1;
     let region = regions.get(classCode);
     if (!region) {
@@ -237,7 +237,7 @@ export function readingTypes(data: ExportFile, period: Period): Diagnosis {
 
   const classes = new Map<string, number>();
   for (const i of items) {
-    const ndc = parseNdc(i.book.ndc);
+    const ndc = bookClass(i.book);
     if (ndc) classes.set(ndc.className, (classes.get(ndc.className) ?? 0) + 1);
   }
   const classified = [...classes.values()].reduce((a, b) => a + b, 0);

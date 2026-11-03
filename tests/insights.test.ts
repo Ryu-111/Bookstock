@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Book, ExportFile, ReadingRecord } from '../src/domain/book.js';
 import { chaosMap, readingTypes } from '../src/domain/insights.js';
-import { parseNdc } from '../src/domain/ndc.js';
-import { enrichNdc, ndcTargets } from '../src/lookup/enrich.js';
+import { bookClass, ccodeToNdc, parseNdc } from '../src/domain/ndc.js';
+import { classTargets, enrichClasses } from '../src/lookup/enrich.js';
+import type { EnrichPatch } from '../src/lookup/enrich.js';
 import type { FetchLike } from '../src/lookup/http.js';
 import { DOMParser } from '@xmldom/xmldom';
 
@@ -140,11 +141,20 @@ const parseXml = (body: string) =>
   new DOMParser({ onError: () => undefined }).parseFromString(body, 'text/xml');
 const noWait = <T>(fn: () => Promise<T>) => fn();
 
+type Reply = { status: number; body: string } | 'throw';
+
+/** openBD（まとめて）とNDL（1冊ずつ）の合成の応答。 */
 function stub(
-  handler: (isbn: string) => { status: number; body: string } | 'throw',
+  openbd: (isbns: string[]) => Reply,
+  ndl: (isbn: string) => Reply,
+  calls: string[] = [],
 ) {
   const fetch: FetchLike = (url) => {
-    const r = handler(new URL(url).searchParams.get('isbn') ?? '');
+    const u = new URL(url);
+    const isbn = u.searchParams.get('isbn') ?? '';
+    calls.push(u.hostname);
+    const r =
+      u.hostname === 'api.openbd.jp' ? openbd(isbn.split(',')) : ndl(isbn);
     if (r === 'throw') return Promise.reject(new TypeError('Failed to fetch'));
     return Promise.resolve({
       ok: r.status < 300,
@@ -155,48 +165,120 @@ function stub(
   return { fetch, parseXml, throttle: noWait };
 }
 
-await test('ndcTargets / enrichNdc: ISBNがあってNDCのない本だけ補い、空のページ数も補う', async () => {
+const openbdItem = (isbn: string, ccode?: string, pages?: number) => ({
+  summary: { isbn, title: '本' },
+  onix: {
+    DescriptiveDetail: {
+      ...(ccode
+        ? { Subject: [{ SubjectSchemeIdentifier: '78', SubjectCode: ccode }] }
+        : {}),
+      ...(pages
+        ? { Extent: [{ ExtentType: '11', ExtentValue: `${pages}` }] }
+        : {}),
+    },
+  },
+});
+
+const collect = () => {
+  const saved: [string, EnrichPatch][] = [];
+  const onBook = (id: string, patch: EnrichPatch) => {
+    saved.push([id, patch]);
+    return Promise.resolve();
+  };
+  return { saved, onBook };
+};
+
+await test('ccodeToNdc / bookClass: Cコードの内容から近い類・綱を出し、NDCを優先する', () => {
+  assert.equal(ccodeToNdc('0193')?.divisionName, '日本文学');
+  assert.equal(ccodeToNdc('0077')?.className, '技術');
+  assert.equal(ccodeToNdc('1079')?.divisionCode, '72');
+  assert.equal(ccodeToNdc('0098')?.className, '文学');
+  assert.equal(ccodeToNdc('0098')?.divisionCode, undefined);
+  assert.equal(ccodeToNdc('93'), null);
+  assert.equal(ccodeToNdc(undefined), null);
+  assert.equal(bookClass({ ndc: '007.6', ccode: '0193' })?.divisionCode, '00');
+  assert.equal(bookClass({ ccode: '0193' })?.divisionCode, '91');
+});
+
+await test('classTargets / enrichClasses: openBDでまとめて引き、残りだけNDLで引く', async () => {
   const data = make([
     { isbn13: '9784000000000' },
     { isbn13: '9784003101018', ndc: '913', pageCount: 100 },
     {},
     { isbn13: '9784003101018', pageCount: 50 },
+    { isbn13: '9784101010014', ccode: '0193' },
   ]);
-  const targets = ndcTargets(data);
+  const targets = classTargets(data);
   assert.deepEqual(
     targets.map((b) => b.id),
     ['b0', 'b3'],
   );
-  const saved: Book[] = [];
-  const result = await enrichNdc(
+  const calls: string[] = [];
+  const { saved, onBook } = collect();
+  const result = await enrichClasses(
     targets,
-    stub((isbn) => ({
-      status: 200,
-      body: ndlXml(isbn, '913.6', '300p ; 19cm'),
-    })),
-    (b) => {
-      saved.push(b);
-      return Promise.resolve();
-    },
+    stub(
+      (isbns) => {
+        assert.deepEqual(isbns, ['9784000000000', '9784003101018']);
+        return {
+          status: 200,
+          body: JSON.stringify([
+            openbdItem('9784000000000', '0193', 300),
+            null,
+          ]),
+        };
+      },
+      (isbn) => ({ status: 200, body: ndlXml(isbn, '913.6', '200p') }),
+      calls,
+    ),
+    onBook,
     () => undefined,
   );
   assert.deepEqual(result, { kind: 'done', filled: 2, total: 2 });
-  assert.deepEqual(
-    saved.map((b) => [b.ndc, b.pageCount]),
-    [
-      ['913.6', 300],
-      ['913.6', 50],
-    ],
-  );
+  assert.deepEqual(saved, [
+    ['b0', { ccode: '0193', pageCount: 300 }],
+    ['b3', { ndc: '913.6' }],
+  ]);
+  assert.deepEqual(calls, ['api.openbd.jp', 'ndlsearch.ndl.go.jp']);
 });
 
-await test('enrichNdc: 最初から続けて通信失敗したら止める。中断もできる', async () => {
+await test('enrichClasses: NDLに届かなくても、openBDで取れた分は残して終える', async () => {
+  const books = make([
+    { isbn13: '9784000000000' },
+    ...Array.from({ length: 4 }, () => ({ isbn13: '9784003101018' })),
+  ]).books;
+  const { saved, onBook } = collect();
+  const result = await enrichClasses(
+    books,
+    stub(
+      () => ({
+        status: 200,
+        body: JSON.stringify([openbdItem('9784000000000', '0036')]),
+      }),
+      () => 'throw',
+    ),
+    onBook,
+    () => undefined,
+  );
+  assert.deepEqual(result, {
+    kind: 'done',
+    filled: 1,
+    total: 5,
+    ndlFailure: 'network',
+  });
+  assert.equal(saved.length, 1);
+});
+
+await test('enrichClasses: どちらにも届かなければ止める。中断もできる', async () => {
   const books = make(
     Array.from({ length: 5 }, () => ({ isbn13: '9784000000000' })),
   ).books;
-  const down = await enrichNdc(
+  const down = await enrichClasses(
     books,
-    stub(() => 'throw'),
+    stub(
+      () => 'throw',
+      () => 'throw',
+    ),
     () => Promise.resolve(),
     () => undefined,
   );
@@ -204,16 +286,28 @@ await test('enrichNdc: 最初から続けて通信失敗したら止める。中
 
   const abort = new AbortController();
   let calls = 0;
-  const aborted = await enrichNdc(
+  const aborted = await enrichClasses(
     books,
-    stub(() => {
-      calls++;
-      if (calls === 2) abort.abort();
-      return { status: 404, body: '' };
-    }),
+    stub(
+      () => ({ status: 200, body: '[]' }),
+      () => {
+        calls++;
+        if (calls === 2) abort.abort();
+        return { status: 404, body: '' };
+      },
+    ),
     () => Promise.resolve(),
     () => undefined,
     abort.signal,
   );
   assert.deepEqual(aborted, { kind: 'aborted', filled: 0, done: 2 });
+});
+
+await test('readingTypes / chaosMap: NDCのない本はCコードで分類する', () => {
+  const data = make([{ ccode: '0193' }, { ccode: '0036' }, {}]);
+  const map = chaosMap(data, all);
+  assert.deepEqual(
+    map.map((r) => r.name),
+    ['社会科学', '文学', '分類なし'],
+  );
 });

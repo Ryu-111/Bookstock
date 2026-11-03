@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ExportFile } from './domain/book.js';
 import { Repository, openDb } from './storage/db.js';
 import type { RakutenConfig } from './lookup/rakuten.js';
 import {
   browserStorage,
+  claimAutoEnrich,
   loadRakutenConfig,
   requestPersistence,
   saveRakutenConfig,
@@ -11,6 +12,10 @@ import {
 import type { Persistence } from './storage/settings.js';
 import { DataPanel } from './ui/data.js';
 import { EnrichPanel } from './ui/enrich-panel.js';
+import { EnrichRunner } from './ui/enrich-runner.js';
+import { classTargets } from './lookup/enrich.js';
+import { browserXmlParser } from './lookup/ndl.js';
+import { createThrottle } from './lookup/recommend.js';
 import { RakutenSettings } from './ui/rakuten-settings.js';
 import { RecommendPage } from './ui/recommend.js';
 import { RecordPage } from './ui/record-page.js';
@@ -76,12 +81,32 @@ export function App() {
     at: string;
   }>();
 
+  const runner = useRef<EnrichRunner | undefined>(undefined);
+
   useEffect(() => {
     openDb(window.indexedDB)
       .then(async (db) => {
         const repo = new Repository(db);
         void requestPersistence(navigator.storage).then(setPersistence);
-        setState({ kind: 'ready', repo, data: await repo.snapshot() });
+        const data = await repo.snapshot();
+        setState({ kind: 'ready', repo, data });
+        const enrich = new EnrichRunner(
+          {
+            fetch: (url, init) => window.fetch(url, init),
+            parseXml: browserXmlParser,
+            // NDLサーチに負荷をかけないよう、1.1秒に1件ずつ問い合わせる
+            throttle: createThrottle(1100),
+          },
+          async (id, patch) => {
+            await repo.fillBook(id, patch);
+          },
+          async () =>
+            setState({ kind: 'ready', repo, data: await repo.snapshot() }),
+        );
+        runner.current = enrich;
+        const targets = classTargets(data);
+        if (targets.length > 0 && claimAutoEnrich(browserStorage(), Date.now()))
+          void enrich.start(targets);
       })
       .catch((error: unknown) =>
         setState({
@@ -225,15 +250,9 @@ export function App() {
                 setState({ kind: 'ready', repo, data: await repo.snapshot() });
               }}
             />
-            <EnrichPanel
-              data={state.data}
-              onUpdateBook={async (book) => {
-                await repo.updateBook(book);
-              }}
-              onFinish={async () =>
-                setState({ kind: 'ready', repo, data: await repo.snapshot() })
-              }
-            />
+            {runner.current && (
+              <EnrichPanel data={state.data} runner={runner.current} />
+            )}
             <RakutenSettings
               config={rakuten}
               onChange={(config) => {

@@ -97,6 +97,7 @@ export function validateBook(value: unknown, path: string): Validation<Book> {
     coverUrl: c.optString('coverUrl', /^https:\/\//),
     pageCount: c.optInt('pageCount'),
     ndc: c.optString('ndc'),
+    ccode: c.optString('ccode', /^\d{4}$/),
     source: c.oneOf('source', BOOK_SOURCES),
   });
   return c.errors.length > 0

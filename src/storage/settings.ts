@@ -70,3 +70,26 @@ export async function requestPersistence(
     return 'best-effort';
   }
 }
+
+const ENRICH_KEY = 'bookstock.enrich.autoAt';
+/** 自動の補完は1日に1回まで（見つからない本を毎回問い合わせないため）。 */
+const ENRICH_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * 起動時に分類の補完を自動で始めてよいか。始めてよければ時刻を記録してtrue。
+ * 保存できない環境でも、補完自体は進める。
+ */
+export function claimAutoEnrich(
+  storage: StorageLike | null,
+  now: number,
+): boolean {
+  try {
+    const last = Number(storage?.getItem(ENRICH_KEY) ?? NaN);
+    if (Number.isFinite(last) && last <= now && now - last < ENRICH_INTERVAL_MS)
+      return false;
+    storage?.setItem(ENRICH_KEY, String(now));
+  } catch {
+    // 記録できなくても続ける
+  }
+  return true;
+}

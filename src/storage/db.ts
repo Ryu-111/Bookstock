@@ -294,6 +294,29 @@ export class Repository {
     });
   }
 
+  /**
+   * 空の分類・ページ数だけを補う。裏で動く補完用で、その間に利用者が直した値は上書きしない。
+   * 本が消えていればnull。
+   */
+  fillBook(
+    id: string,
+    patch: Pick<Book, 'ndc' | 'ccode' | 'pageCount'>,
+  ): Promise<Book | null> {
+    return this.write(['books'], async (tx) => {
+      const store = tx.objectStore('books');
+      const raw: unknown = await promisify(store.get(id));
+      if (raw === undefined) return null;
+      const current = valid(validateBook(raw, 'book'));
+      const next: Book = { ...current };
+      if (!next.ndc && patch.ndc) next.ndc = patch.ndc;
+      if (!next.ccode && patch.ccode) next.ccode = patch.ccode;
+      if (!next.pageCount && patch.pageCount) next.pageCount = patch.pageCount;
+      const checked = valid(validateBook(next, 'book'));
+      store.put(checked);
+      return checked;
+    });
+  }
+
   /** 進捗ログを追加し、記録のupdatedAtも更新する。 */
   addLog(recordId: string, input: NewLog): Promise<ReadingLog> {
     return this.write(['records', 'logs'], async (tx) => {

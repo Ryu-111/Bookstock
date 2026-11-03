@@ -19,7 +19,7 @@ const xmlParser: XmlParser = (body) =>
     },
   }).parseFromString(body, 'text/xml');
 
-await test('openBD: summaryとONIXのページ数を読む', () => {
+await test('openBD: summaryとONIXのページ数・Cコードを読む', () => {
   assert.deepEqual(parseOpenbd(fixture('openbd.json')), [
     {
       title: 'テスト用の本 上',
@@ -29,6 +29,7 @@ await test('openBD: summaryとONIXのページ数を読む', () => {
       publisher: '架空出版',
       publishedDate: '2024-03-15',
       pageCount: 320,
+      ccode: '0093',
     },
   ]);
 });
