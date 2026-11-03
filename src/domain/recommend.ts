@@ -136,6 +136,11 @@ export function nextVolume(
     .sort((a, b) => (a.parsed?.volume ?? 0) - (b.parsed?.volume ?? 0))[0]?.book;
 }
 
+/** シリーズの巻（巻数・上下のある題名）を除く。続きは「シリーズの続き」で出すため。 */
+export function withoutSeries(candidates: BookCandidate[]): BookCandidate[] {
+  return candidates.filter((book) => !parseVolume(book.title));
+}
+
 /** 本棚にない本だけを、重複をまとめて最大limit件返す。 */
 export function notOwned(
   candidates: BookCandidate[],

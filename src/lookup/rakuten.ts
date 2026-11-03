@@ -75,6 +75,8 @@ export type RakutenQuery = (
   sort?: RakutenSort;
   /** 下位ジャンルの一覧も返してもらう（genreInformationFlag=1） */
   genreInfo?: boolean;
+  /** 1回に返す件数（1〜30。既定は20） */
+  hits?: number;
 };
 
 export function rakutenUrl(config: RakutenConfig, query: RakutenQuery): string {
@@ -93,6 +95,8 @@ export function rakutenUrl(config: RakutenConfig, query: RakutenQuery): string {
   else params.set('title', query.title);
   if (query.sort && query.sort !== 'standard') params.set('sort', query.sort);
   if (query.genreInfo) params.set('genreInformationFlag', '1');
+  if (query.hits)
+    params.set('hits', String(Math.min(30, Math.max(1, query.hits))));
   return `${config.endpoint}?${params.toString()}`;
 }
 
@@ -101,11 +105,26 @@ function authors(value: unknown): string[] {
   return (text(value) ?? '').split(/[/／]/).map(stripRole).filter(Boolean);
 }
 
-function parseItem(raw: unknown): BookCandidate | undefined {
+/** 楽天ブックスのジャンル「漫画（コミック）」と「ボーイズラブ（BL）」。 */
+const COMIC_GENRES = ['001001', '001021'];
+
+/** 漫画か。判型（size）が「コミック」か、漫画のジャンルに入っている本。 */
+function isComic(item: Record<string, unknown>): boolean {
+  if (text(item.size)?.includes('コミック')) return true;
+  return (text(item.booksGenreId) ?? '')
+    .split('/')
+    .some((id) => COMIC_GENRES.some((g) => id.trim().startsWith(g)));
+}
+
+function parseItem(
+  raw: unknown,
+  skipComics: boolean,
+): BookCandidate | undefined {
   // formatVersion=1 は { item: {...} }（XMLの表記では Item）、2 は {...} のまま返る。
   const wrapped = isObject(raw) ? (raw.item ?? raw.Item) : undefined;
   const item = isObject(wrapped) ? wrapped : raw;
   if (!isObject(item)) return undefined;
+  if (skipComics && isComic(item)) return undefined;
   const baseTitle = text(item.title);
   if (!baseTitle) return undefined;
   const subTitle = text(item.subTitle);
@@ -127,8 +146,11 @@ function parseItem(raw: unknown): BookCandidate | undefined {
   return book;
 }
 
-/** 書籍検索APIの応答をパースする。該当なし・壊れた応答は空配列。 */
-export function parseRakuten(body: string): BookCandidate[] {
+/** 書籍検索APIの応答をパースする。該当なし・壊れた応答は空配列。skipComicsなら漫画を除く。 */
+export function parseRakuten(
+  body: string,
+  { skipComics = false }: { skipComics?: boolean } = {},
+): BookCandidate[] {
   let data: unknown;
   try {
     data = JSON.parse(body);
@@ -140,7 +162,7 @@ export function parseRakuten(body: string): BookCandidate[] {
     ? (data.items ?? data.Items)
     : undefined;
   if (!Array.isArray(items)) return [];
-  return items.flatMap((item) => parseItem(item) ?? []);
+  return items.flatMap((item) => parseItem(item, skipComics) ?? []);
 }
 
 /** IDやキーの誤りによるエラーか（400 wrong_parameter のうち認証情報に関するもの、401・403）。 */

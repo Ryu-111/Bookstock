@@ -237,9 +237,12 @@ function deps(handler: (url: URL) => { status: number; body: string }) {
   };
 }
 
-const items = (titles: string[]) =>
+const items = (titles: string[], extra: Record<string, unknown>[] = []) =>
   JSON.stringify({
-    items: titles.map((title) => ({ title, author: '山田 太郎' })),
+    items: [
+      ...titles.map((title) => ({ title, author: '山田 太郎' })),
+      ...extra,
+    ],
   });
 
 await test('recommendByAuthors / recommendSeries: 楽天に問い合わせ、本棚にない本を返す。同じ問い合わせはキャッシュする', async () => {
@@ -248,7 +251,13 @@ await test('recommendByAuthors / recommendSeries: 楽天に問い合わせ、本
       return { status: 404, body: '{"error":"not_found"}' };
     return {
       status: 200,
-      body: items(['合成の物語 2', '合成の物語 3', '新刊の本']),
+      body: items(
+        ['合成の物語 2', '合成の物語 3', '新刊の本', '別のシリーズ 1'],
+        [
+          { title: '合成のコミック', size: 'コミック' },
+          { title: '合成の漫画', booksGenreId: '001001001/001004' },
+        ],
+      ),
     };
   });
   const picks: string[] = [];
@@ -256,7 +265,8 @@ await test('recommendByAuthors / recommendSeries: 楽天に問い合わせ、本
     picks.push(`${p.author}:${p.books.map((b) => b.title).join('/')}`),
   );
   assert.equal(failure, null);
-  assert.deepEqual(picks, ['山田 太郎:合成の物語 3/新刊の本']);
+  // 著者のおすすめから、シリーズの巻と漫画を除く
+  assert.deepEqual(picks, ['山田 太郎:新刊の本']);
   const series: string[] = [];
   await recommendSeries(data, d, (b) => series.push(b.title));
   assert.deepEqual(series, ['合成の物語 3']);
@@ -270,7 +280,14 @@ await test('recommendRanking: 売れている順とジャンル一覧。失敗�
   const ok = deps(() => ({
     status: 200,
     body: JSON.stringify({
-      items: [{ title: '人気の本' }, { title: '単発の本' }],
+      items: [
+        { title: '人気の本' },
+        { title: '単発の本' },
+        { title: '人気の漫画 12', size: 'コミック' },
+        { title: '人気の小説 上', booksGenreId: '001004008' },
+        { title: '人気のBL', booksGenreId: '001021001' },
+        { title: '新しい単行本', booksGenreId: '001004008' },
+      ],
       GenreInformation: [
         {
           children: [
@@ -278,6 +295,12 @@ await test('recommendRanking: 売れている順とジャンル一覧。失敗�
               child: {
                 booksGenreId: '001004',
                 booksGenreName: '小説・エッセイ',
+              },
+            },
+            {
+              child: {
+                booksGenreId: '001001',
+                booksGenreName: '漫画（コミック）',
               },
             },
           ],
@@ -290,11 +313,12 @@ await test('recommendRanking: 売れている順とジャンル一覧。失敗�
   if (r.ok) {
     assert.deepEqual(
       r.books.map((b) => b.title),
-      ['人気の本'],
+      ['人気の本', '新しい単行本'],
     );
     assert.deepEqual(r.genres, [{ id: '001004', name: '小説・エッセイ' }]);
   }
   assert.equal(ok.urls[0]?.searchParams.get('sort'), 'sales');
+  assert.equal(ok.urls[0]?.searchParams.get('hits'), '30');
   const bad = deps(() => ({ status: 429, body: '' }));
   assert.deepEqual(await recommendRanking(data, '001', bad.deps), {
     ok: false,

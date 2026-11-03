@@ -5,6 +5,7 @@ import {
   notOwned,
   ownedIndex,
   seriesLeads,
+  withoutSeries,
 } from '../domain/recommend.js';
 import { fetchText } from './http.js';
 import type { FetchFailure, FetchLike } from './http.js';
@@ -107,7 +108,11 @@ export async function recommendByAuthors(
       if (r.reason !== 'not_found') failure = r.reason;
       continue;
     }
-    const books = notOwned(parseRakuten(r.body), owned, 10);
+    const books = notOwned(
+      withoutSeries(parseRakuten(r.body, { skipComics: true })),
+      owned,
+      10,
+    );
     if (books.length > 0) onAuthor({ author, books });
   }
   return failure;
@@ -130,7 +135,11 @@ export async function recommendSeries(
       if (r.reason !== 'not_found') failure = r.reason;
       continue;
     }
-    const next = nextVolume(lead, parseRakuten(r.body), owned);
+    const next = nextVolume(
+      lead,
+      parseRakuten(r.body, { skipComics: true }),
+      owned,
+    );
     if (next) onBook(next);
   }
   return failure;
@@ -145,11 +154,22 @@ export async function recommendRanking(
   | { ok: true; books: BookCandidate[]; genres: RakutenGenre[] }
   | { ok: false; reason: FetchFailure | 'not_found' }
 > {
-  const r = await rakutenGet({ genreId, sort: 'sales', genreInfo: true }, deps);
+  // 漫画とシリーズの巻を除くと減るので、多めに取る
+  const r = await rakutenGet(
+    { genreId, sort: 'sales', genreInfo: true, hits: 30 },
+    deps,
+  );
   if (!r.ok) return r;
   return {
     ok: true,
-    books: notOwned(parseRakuten(r.body), ownedIndex(data), 20),
-    genres: parseRakutenGenres(r.body),
+    books: notOwned(
+      withoutSeries(parseRakuten(r.body, { skipComics: true })),
+      ownedIndex(data),
+      20,
+    ),
+    // 漫画のジャンルは選べないようにする
+    genres: parseRakutenGenres(r.body).filter(
+      (g) => !/漫画|コミック|ボーイズラブ/.test(g.name),
+    ),
   };
 }

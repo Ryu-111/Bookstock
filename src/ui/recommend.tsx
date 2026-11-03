@@ -223,7 +223,10 @@ export function RecommendPage({
       )}
 
       {visible(series).length > 0 && (
-        <Section title="シリーズの続き" note="読んだ巻の次の巻です">
+        <Section
+          title="シリーズの続き"
+          note="読んだ巻の次の巻です（漫画は除きます）"
+        >
           <Row books={visible(series)} onPick={setPicked} />
         </Section>
       )}
@@ -231,13 +234,20 @@ export function RecommendPage({
       {authors
         .filter((a) => visible(a.books).length > 0)
         .map((a) => (
-          <Section key={a.author} title={`${a.author}の本`} note="新しい順">
+          <Section
+            key={a.author}
+            title={`${a.author}の本`}
+            note="新しい順。漫画とシリーズの巻は除きます"
+          >
             <Row books={visible(a.books)} onPick={setPicked} />
           </Section>
         ))}
 
       {(ranking.length > 0 || genres.length > 0) && (
-        <Section title="人気の本" note="楽天ブックスで売れている順">
+        <Section
+          title="人気の本"
+          note="楽天ブックスで売れている順。漫画とシリーズの巻は除きます"
+        >
           {genres.length > 0 && (
             <div class="chips" role="group" aria-label="ジャンル">
               <button
