@@ -19,6 +19,8 @@ export interface Book {
   ndc?: string;
   /** Cコード（出版社が付ける4桁の分類。openBDから）。NDCがない本の分類に使う */
   ccode?: string;
+  /** 楽天ブックスのジャンル名（上位 > 下位）。NDCもCコードもない本の分類に使う */
+  rakutenGenre?: string;
   source: BookSource;
 }
 

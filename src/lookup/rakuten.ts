@@ -236,3 +236,31 @@ export function parseRakutenGenres(body: string): RakutenGenre[] {
     return id && name && /^\d+$/.test(id) ? [{ id, name }] : [];
   });
 }
+
+/**
+ * 書籍検索の応答から、ISBNが一致する本の楽天ブックスのジャンルID（booksGenreId）を読む。
+ * 複数あるときは「/」で区切られて返る。数字でない値は捨てる。
+ */
+export function parseRakutenGenreIds(body: string, isbn13: string): string[] {
+  let data: unknown;
+  try {
+    data = JSON.parse(body);
+  } catch {
+    return [];
+  }
+  const items: unknown = isObject(data)
+    ? (data.items ?? data.Items)
+    : undefined;
+  if (!Array.isArray(items)) return [];
+  for (const raw of items as unknown[]) {
+    const wrapped = isObject(raw) ? (raw.item ?? raw.Item) : undefined;
+    const item: unknown = isObject(wrapped) ? wrapped : raw;
+    if (!isObject(item) || typeof item.isbn !== 'string') continue;
+    if (toIsbn13(item.isbn) !== isbn13) continue;
+    return (text(item.booksGenreId) ?? '')
+      .split('/')
+      .map((id) => id.trim())
+      .filter((id) => /^\d{6,}$/.test(id));
+  }
+  return [];
+}

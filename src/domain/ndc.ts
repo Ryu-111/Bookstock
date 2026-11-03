@@ -222,10 +222,66 @@ export function ccodeToNdc(ccode: string | undefined): NdcGroup | null {
   return parseNdc(CCODE_DIVISIONS[content] ?? content.slice(0, 1));
 }
 
-/** 本の分類。NDCを優先し、なければCコードから近いものを使う。 */
+/** 楽天ブックスのジャンル名の区切り（上位 > 下位）。 */
+export const GENRE_SEPARATOR = ' > ';
+
+/**
+ * 形式や寄せ集めのジャンル（文庫・新書など）。分類には使わず、下位のジャンルを見る。
+ * 「人文・思想・社会」のように複数の類にまたがるものも含める。
+ */
+export const BROAD_GENRE =
+  /文庫|新書|人文|その他|付録|セット|バーゲン|雑誌|ムック/;
+
+/** 楽天ブックスのジャンル名 → 近いNDCの綱（または類）。上から順に見る。 */
+const GENRE_RULES: [RegExp, string][] = [
+  [/漫画|コミック|ボーイズラブ|BL/, '72'],
+  [/ライトノベル/, '91'],
+  [/海外|翻訳/, '9'],
+  [/絵本|児童書|図鑑/, '9'],
+  [/小説|エッセイ|文学|詩|ノンフィクション/, '91'],
+  [/語学|英語|辞典|辞書|学習参考書/, '80'],
+  [/パソコン|システム開発|コンピュータ|プログラミング/, '00'],
+  [/医学|薬学|看護|歯科|健康/, '49'],
+  [/ビジネス|経済|経営|就職|投資|マネー/, '33'],
+  [/政治/, '31'],
+  [/法律|法学/, '32'],
+  [/教育|子育て/, '37'],
+  [/社会/, '36'],
+  [/歴史|日本史|世界史/, '20'],
+  [/旅行|留学|アウトドア|地図/, '29'],
+  [/哲学|思想/, '10'],
+  [/心理/, '14'],
+  [/宗教/, '16'],
+  [/科学|数学|物理|化学|生物|宇宙/, '40'],
+  [/技術|工学|建築|機械|電気/, '50'],
+  [/美容|暮らし|料理|家事|手芸/, '59'],
+  [/スポーツ/, '78'],
+  [/音楽|楽譜/, '76'],
+  [/写真/, '74'],
+  [/美術|デザイン|アート|絵画/, '70'],
+  [/ホビー|エンタメ|ゲーム|タレント|映画|芸能|趣味/, '79'],
+];
+
+/** 楽天ブックスのジャンル名（上位 > 下位）から、近いNDCの類・綱を返す。下位を優先する。 */
+export function rakutenGenreToNdc(path: string | undefined): NdcGroup | null {
+  const names = (path ?? '').split(GENRE_SEPARATOR).reverse();
+  for (const name of names) {
+    if (BROAD_GENRE.test(name)) continue;
+    const rule = GENRE_RULES.find(([pattern]) => pattern.test(name));
+    if (rule) return parseNdc(rule[1]);
+  }
+  return null;
+}
+
+/** 本の分類。NDCを優先し、なければCコード、楽天ブックスのジャンルの順に近いものを使う。 */
 export function bookClass(book: {
   ndc?: string;
   ccode?: string;
+  rakutenGenre?: string;
 }): NdcGroup | null {
-  return parseNdc(book.ndc) ?? ccodeToNdc(book.ccode);
+  return (
+    parseNdc(book.ndc) ??
+    ccodeToNdc(book.ccode) ??
+    rakutenGenreToNdc(book.rakutenGenre)
+  );
 }

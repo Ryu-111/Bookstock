@@ -8,7 +8,12 @@ import {
 } from '../domain/recommend.js';
 import { fetchText } from './http.js';
 import type { FetchFailure, FetchLike } from './http.js';
-import { parseRakuten, parseRakutenGenres, rakutenUrl } from './rakuten.js';
+import {
+  isRakutenAuthError,
+  parseRakuten,
+  parseRakutenGenres,
+  rakutenUrl,
+} from './rakuten.js';
 import type { RakutenConfig, RakutenGenre, RakutenQuery } from './rakuten.js';
 
 /** 楽天の制限（1アプリIDにつき1秒1回）を守るため、呼び出しを間隔を空けて順に実行する。 */
@@ -45,9 +50,21 @@ const NOT_FOUND = '\u0000not_found';
 
 export type Fetched =
   | { ok: true; body: string }
-  | { ok: false; reason: FetchFailure | 'not_found' };
+  | {
+      ok: false;
+      reason: FetchFailure | 'not_found';
+      /** IDや許可サイトの設定の誤りによる失敗か */
+      auth?: boolean;
+    };
 
-async function get(query: RakutenQuery, deps: RecommendDeps): Promise<Fetched> {
+/** 楽天ブックスに問い合わせる。結果（該当なしも）をキャッシュし、throttleで間隔を空ける。 */
+export async function rakutenGet(
+  query: RakutenQuery,
+  deps: Pick<
+    RecommendDeps,
+    'fetch' | 'rakuten' | 'throttle' | 'cache' | 'timeoutMs'
+  >,
+): Promise<Fetched> {
   const key = JSON.stringify({ e: deps.rakuten.endpoint, q: query });
   const cached = deps.cache.get(key);
   if (cached === NOT_FOUND) return { ok: false, reason: 'not_found' };
@@ -61,7 +78,11 @@ async function get(query: RakutenQuery, deps: RecommendDeps): Promise<Fetched> {
       deps.cache.set(key, NOT_FOUND);
       return { ok: false, reason: 'not_found' };
     }
-    return { ok: false, reason: result.reason };
+    return {
+      ok: false,
+      reason: result.reason,
+      ...(isRakutenAuthError(result.status, result.body) ? { auth: true } : {}),
+    };
   }
   deps.cache.set(key, result.text);
   return { ok: true, body: result.text };
@@ -81,7 +102,7 @@ export async function recommendByAuthors(
   const owned = ownedIndex(data);
   let failure: FetchFailure | 'not_found' | null = null;
   for (const author of favoriteAuthors(data)) {
-    const r = await get({ author, sort: '-releaseDate' }, deps);
+    const r = await rakutenGet({ author, sort: '-releaseDate' }, deps);
     if (!r.ok) {
       if (r.reason !== 'not_found') failure = r.reason;
       continue;
@@ -101,7 +122,10 @@ export async function recommendSeries(
   const owned = ownedIndex(data);
   let failure: FetchFailure | 'not_found' | null = null;
   for (const lead of seriesLeads(data)) {
-    const r = await get({ title: lead.base, sort: '-releaseDate' }, deps);
+    const r = await rakutenGet(
+      { title: lead.base, sort: '-releaseDate' },
+      deps,
+    );
     if (!r.ok) {
       if (r.reason !== 'not_found') failure = r.reason;
       continue;
@@ -121,7 +145,7 @@ export async function recommendRanking(
   | { ok: true; books: BookCandidate[]; genres: RakutenGenre[] }
   | { ok: false; reason: FetchFailure | 'not_found' }
 > {
-  const r = await get({ genreId, sort: 'sales', genreInfo: true }, deps);
+  const r = await rakutenGet({ genreId, sort: 'sales', genreInfo: true }, deps);
   if (!r.ok) return r;
   return {
     ok: true,

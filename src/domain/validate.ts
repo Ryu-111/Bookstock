@@ -98,6 +98,7 @@ export function validateBook(value: unknown, path: string): Validation<Book> {
     pageCount: c.optInt('pageCount'),
     ndc: c.optString('ndc'),
     ccode: c.optString('ccode', /^\d{4}$/),
+    rakutenGenre: c.optString('rakutenGenre', /^.{1,200}$/su),
     source: c.oneOf('source', BOOK_SOURCES),
   });
   return c.errors.length > 0

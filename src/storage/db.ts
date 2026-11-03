@@ -300,7 +300,7 @@ export class Repository {
    */
   fillBook(
     id: string,
-    patch: Pick<Book, 'ndc' | 'ccode' | 'pageCount'>,
+    patch: Pick<Book, 'ndc' | 'ccode' | 'rakutenGenre' | 'pageCount'>,
   ): Promise<Book | null> {
     return this.write(['books'], async (tx) => {
       const store = tx.objectStore('books');
@@ -310,6 +310,8 @@ export class Repository {
       const next: Book = { ...current };
       if (!next.ndc && patch.ndc) next.ndc = patch.ndc;
       if (!next.ccode && patch.ccode) next.ccode = patch.ccode;
+      if (!next.rakutenGenre && patch.rakutenGenre)
+        next.rakutenGenre = patch.rakutenGenre;
       if (!next.pageCount && patch.pageCount) next.pageCount = patch.pageCount;
       const checked = valid(validateBook(next, 'book'));
       store.put(checked);
