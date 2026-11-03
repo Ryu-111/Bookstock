@@ -1,13 +1,19 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { BookCandidate, ExportFile } from '../domain/book.js';
-import { ownedIndex } from '../domain/recommend.js';
+import { leafGenre, ownedIndex, rankForYou } from '../domain/recommend.js';
+import type { Candidate, GenreTaste, Scored } from '../domain/recommend.js';
 import {
   recommendByAuthors,
+  recommendGenres,
   recommendRanking,
   recommendSeries,
 } from '../lookup/recommend.js';
-import type { AuthorPick, RecommendDeps } from '../lookup/recommend.js';
+import type {
+  AuthorPick,
+  GenrePick,
+  RecommendDeps,
+} from '../lookup/recommend.js';
 import type { RakutenConfig, RakutenGenre } from '../lookup/rakuten.js';
 import { Cover } from './cover.js';
 import { outcomeLabel } from './labels.js';
@@ -22,9 +28,12 @@ const ROOT_GENRE = '001';
 function Row({
   books,
   onPick,
+  reasons,
 }: {
   books: BookCandidate[];
   onPick: (book: BookCandidate) => void;
+  /** 本ごとの、おすすめの理由 */
+  reasons?: Map<BookCandidate, string[]>;
 }) {
   return (
     <ul class="rec-row">
@@ -38,6 +47,9 @@ function Row({
                 .filter(Boolean)
                 .join(' · ')}
             </span>
+            {reasons?.get(b)?.length ? (
+              <span class="rec-reason">{reasons.get(b)?.join('・')}</span>
+            ) : null}
           </button>
         </li>
       ))}
@@ -124,6 +136,8 @@ export function RecommendPage({
 }) {
   const [series, setSeries] = useState<BookCandidate[]>([]);
   const [authors, setAuthors] = useState<AuthorPick[]>([]);
+  const [genrePicks, setGenrePicks] = useState<GenrePick[]>([]);
+  const [forYou, setForYou] = useState<Scored[]>([]);
   const [ranking, setRanking] = useState<BookCandidate[]>([]);
   const [genres, setGenres] = useState<RakutenGenre[]>([]);
   const [genre, setGenre] = useState(ROOT_GENRE);
@@ -148,20 +162,32 @@ export function RecommendPage({
     const d = snapshot.current;
     setLoading(true);
     void (async () => {
+      const candidates: Candidate[] = [];
+      let tastes: GenreTaste[] = [];
       const failures = [
         await recommendSeries(d, deps, (book) => {
           if (!cancelled) setSeries((prev) => [...prev, book]);
         }),
+        await recommendGenres(d, deps, (pick) => {
+          candidates.push(...pick.candidates);
+          if (!cancelled) setGenrePicks((prev) => [...prev, pick]);
+        }).then((r) => {
+          tastes = r.genres;
+          return r.failure;
+        }),
         await recommendByAuthors(d, deps, (pick) => {
+          candidates.push(...pick.candidates);
           if (!cancelled) setAuthors((prev) => [...prev, pick]);
         }),
       ];
       const r = await recommendRanking(d, ROOT_GENRE, deps);
       if (cancelled) return;
       if (r.ok) {
+        candidates.push(...r.candidates);
         setRanking(r.books);
         setGenres(r.genres);
       } else if (r.reason !== 'not_found') failures.push(r.reason);
+      setForYou(rankForYou(d, candidates, tastes, new Date()));
       setFailure(failures.find((f) => f !== null) ?? null);
       setLoading(false);
     })();
@@ -203,13 +229,16 @@ export function RecommendPage({
     !loading &&
     series.length === 0 &&
     authors.length === 0 &&
+    genrePicks.length === 0 &&
     ranking.length === 0;
+  const forYouBooks = visible(forYou.map((s) => s.book));
+  const reasons = new Map(forYou.map((s) => [s.book, s.reasons]));
 
   return (
     <section>
       <h1 class="large-title">おすすめ</h1>
       <p class="footnote">
-        よく読む著者名と、読んだシリーズ名を楽天ブックスに送って探します。読書記録そのものは送りません。
+        よく読む著者名、読んだシリーズ名、よく読むジャンルを楽天ブックスに送って探します。読書記録そのものは送らず、点数は手元で計算します。
       </p>
       {loading && (
         <p class="footnote" role="status">
@@ -222,22 +251,53 @@ export function RecommendPage({
         </p>
       )}
 
+      {forYouBooks.length > 0 && (
+        <Section
+          title="あなたへのおすすめ"
+          note="よく読む著者・ジャンル、売れ行き、新しさで点数を付けた順"
+        >
+          <Row books={forYouBooks} onPick={setPicked} reasons={reasons} />
+        </Section>
+      )}
+
       {visible(series).length > 0 && (
-        <Section title="シリーズの続き" note="読んだ巻の次の巻です">
+        <Section
+          title="シリーズの続き"
+          note="読んだ巻の次の巻です（漫画は除きます）"
+        >
           <Row books={visible(series)} onPick={setPicked} />
         </Section>
       )}
 
+      {genrePicks
+        .filter((g) => visible(g.books).length > 0)
+        .map((g) => (
+          <Section
+            key={g.genre.id}
+            title={`よく読む「${leafGenre(g.genre.key)}」の人気本`}
+            note={`${g.genre.count}冊読んだジャンル。売れている順`}
+          >
+            <Row books={visible(g.books)} onPick={setPicked} />
+          </Section>
+        ))}
+
       {authors
         .filter((a) => visible(a.books).length > 0)
         .map((a) => (
-          <Section key={a.author} title={`${a.author}の本`} note="新しい順">
+          <Section
+            key={a.author}
+            title={`${a.author}の本`}
+            note="新しい順。漫画とシリーズの巻は除きます"
+          >
             <Row books={visible(a.books)} onPick={setPicked} />
           </Section>
         ))}
 
       {(ranking.length > 0 || genres.length > 0) && (
-        <Section title="人気の本" note="楽天ブックスで売れている順">
+        <Section
+          title="人気の本"
+          note="楽天ブックスで売れている順。漫画とシリーズの巻は除きます"
+        >
           {genres.length > 0 && (
             <div class="chips" role="group" aria-label="ジャンル">
               <button
