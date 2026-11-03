@@ -1445,3 +1445,9 @@ textarea::placeholder {
   color: #fff;
   font-weight: 600;
 }
+
+.rec-item .rec-reason {
+  color: var(--tint);
+  font-size: 11px;
+  line-height: 1.3;
+}

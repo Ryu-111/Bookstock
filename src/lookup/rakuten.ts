@@ -146,11 +146,25 @@ function parseItem(
   return book;
 }
 
+/** 本と、その楽天ブックスのジャンルID（booksGenreId）。 */
+export interface RakutenItem {
+  book: BookCandidate;
+  genreIds: string[];
+}
+
 /** 書籍検索APIの応答をパースする。該当なし・壊れた応答は空配列。skipComicsなら漫画を除く。 */
 export function parseRakuten(
   body: string,
-  { skipComics = false }: { skipComics?: boolean } = {},
+  options: { skipComics?: boolean } = {},
 ): BookCandidate[] {
+  return parseRakutenItems(body, options).map((i) => i.book);
+}
+
+/** parseRakuten と同じだが、ジャンルIDも返す（おすすめの点数付けに使う）。 */
+export function parseRakutenItems(
+  body: string,
+  { skipComics = false }: { skipComics?: boolean } = {},
+): RakutenItem[] {
   let data: unknown;
   try {
     data = JSON.parse(body);
@@ -162,7 +176,19 @@ export function parseRakuten(
     ? (data.items ?? data.Items)
     : undefined;
   if (!Array.isArray(items)) return [];
-  return items.flatMap((item) => parseItem(item, skipComics) ?? []);
+  return items.flatMap((raw: unknown) => {
+    const book = parseItem(raw, skipComics);
+    if (!book) return [];
+    const wrapped = isObject(raw) ? (raw.item ?? raw.Item) : undefined;
+    const item: unknown = isObject(wrapped) ? wrapped : raw;
+    const genreIds = isObject(item)
+      ? (text(item.booksGenreId) ?? '')
+          .split('/')
+          .map((id) => id.trim())
+          .filter((id) => /^\d{6,}$/.test(id))
+      : [];
+    return [{ book, genreIds }];
+  });
 }
 
 /** IDやキーの誤りによるエラーか（400 wrong_parameter のうち認証情報に関するもの、401・403）。 */
