@@ -148,13 +148,18 @@ function stub(
   openbd: (isbns: string[]) => Reply,
   ndl: (isbn: string) => Reply,
   calls: string[] = [],
+  rakuten: (params: URLSearchParams) => Reply = () => 'throw',
 ) {
   const fetch: FetchLike = (url) => {
     const u = new URL(url);
     const isbn = u.searchParams.get('isbn') ?? '';
     calls.push(u.hostname);
     const r =
-      u.hostname === 'api.openbd.jp' ? openbd(isbn.split(',')) : ndl(isbn);
+      u.hostname === 'api.openbd.jp'
+        ? openbd(isbn.split(','))
+        : u.hostname.endsWith('rakuten.co.jp')
+          ? rakuten(u.searchParams)
+          : ndl(isbn);
     if (r === 'throw') return Promise.reject(new TypeError('Failed to fetch'));
     return Promise.resolve({
       ok: r.status < 300,
@@ -162,7 +167,7 @@ function stub(
       text: () => Promise.resolve(r.body),
     });
   };
-  return { fetch, parseXml, throttle: noWait };
+  return { fetch, parseXml, pace: noWait };
 }
 
 const openbdItem = (isbn: string, ccode?: string, pages?: number) => ({
@@ -234,7 +239,13 @@ await test('classTargets / enrichClasses: openBDでまとめて引き、残り�
     onBook,
     () => undefined,
   );
-  assert.deepEqual(result, { kind: 'done', filled: 2, total: 2 });
+  assert.deepEqual(result, {
+    kind: 'done',
+    filled: 2,
+    total: 2,
+    bySource: { openbd: 1, rakuten: 0, ndl: 1 },
+    unreachable: {},
+  });
   assert.deepEqual(saved, [
     ['b0', { ccode: '0193', pageCount: 300 }],
     ['b3', { ndc: '913.6' }],
@@ -264,7 +275,8 @@ await test('enrichClasses: NDLに届かなくても、openBDで取れた分は�
     kind: 'done',
     filled: 1,
     total: 5,
-    ndlFailure: 'network',
+    bySource: { openbd: 1, rakuten: 0, ndl: 0 },
+    unreachable: { ndl: 'network' },
   });
   assert.equal(saved.length, 1);
 });
@@ -282,7 +294,13 @@ await test('enrichClasses: どちらにも届かなければ止める。中断�
     () => Promise.resolve(),
     () => undefined,
   );
-  assert.deepEqual(down, { kind: 'unreachable', reason: 'network', filled: 0 });
+  assert.deepEqual(down, {
+    kind: 'done',
+    filled: 0,
+    total: 5,
+    bySource: { openbd: 0, rakuten: 0, ndl: 0 },
+    unreachable: { openbd: 'network', ndl: 'network' },
+  });
 
   const abort = new AbortController();
   let calls = 0;
@@ -300,7 +318,142 @@ await test('enrichClasses: どちらにも届かなければ止める。中断�
     () => undefined,
     abort.signal,
   );
-  assert.deepEqual(aborted, { kind: 'aborted', filled: 0, done: 2 });
+  assert.equal(aborted.kind, 'aborted');
+  assert.equal(calls, 2);
+});
+
+/** 楽天ブックスの合成の応答。ISBNで引くとジャンルID、ジャンルで引くと下位の名前を返す。 */
+const rakutenStub =
+  (genreIds: Record<string, string>, log: string[] = []) =>
+  (p: URLSearchParams): Reply => {
+    const isbn = p.get('isbn');
+    if (isbn) {
+      log.push(`isbn:${isbn}`);
+      return genreIds[isbn]
+        ? {
+            status: 200,
+            body: JSON.stringify({
+              items: [{ title: '本', isbn, booksGenreId: genreIds[isbn] }],
+            }),
+          }
+        : { status: 404, body: '{"error":"not_found"}' };
+    }
+    const parent = p.get('booksGenreId') ?? '';
+    log.push(`genre:${parent}`);
+    const children: Record<string, [string, string][]> = {
+      '001': [
+        ['001004', '小説・エッセイ'],
+        ['001019', '文庫'],
+        ['001006', 'ビジネス・経済・就職'],
+      ],
+      '001019': [['001019001', '小説・エッセイ']],
+      '001004': [['001004008', '日本の小説']],
+    };
+    return {
+      status: 200,
+      body: JSON.stringify({
+        items: [],
+        GenreInformation: [
+          {
+            children: (children[parent] ?? []).map(([id, name]) => ({
+              child: { booksGenreId: id, booksGenreName: name },
+            })),
+          },
+        ],
+      }),
+    };
+  };
+
+const rakutenDeps = (
+  base: ReturnType<typeof stub>,
+): Parameters<typeof enrichClasses>[1] => ({
+  ...base,
+  rakuten: {
+    config: {
+      applicationId: 'app',
+      endpoint:
+        'https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404',
+    },
+    throttle: noWait,
+    cache: new Map(),
+  },
+});
+
+await test('enrichClasses: openBDで取れない本は楽天ブックスのジャンル名で補う（文庫は下位を見る）', async () => {
+  const books = make([
+    { isbn13: '9784000000000' },
+    { isbn13: '9784003101018' },
+    { isbn13: '9784101010014' },
+  ]).books;
+  const log: string[] = [];
+  const { saved, onBook } = collect();
+  const result = await enrichClasses(
+    books,
+    rakutenDeps(
+      stub(
+        () => ({ status: 200, body: '[null,null,null]' }),
+        () => ({ status: 404, body: '' }),
+        [],
+        rakutenStub(
+          {
+            '9784000000000': '001019001003',
+            '9784003101018': '001006009',
+          },
+          log,
+        ),
+      ),
+    ),
+    onBook,
+    () => undefined,
+  );
+  assert.deepEqual(saved, [
+    ['b0', { rakutenGenre: '文庫 > 小説・エッセイ' }],
+    ['b1', { rakutenGenre: 'ビジネス・経済・就職' }],
+  ]);
+  assert.deepEqual(result.bySource, { openbd: 0, rakuten: 2, ndl: 0 });
+  // 上位ジャンルの一覧はキャッシュして、2冊目では問い合わせない
+  assert.deepEqual(log, [
+    'isbn:9784000000000',
+    'genre:001',
+    'genre:001019',
+    'isbn:9784003101018',
+    'isbn:9784101010014',
+  ]);
+  assert.equal(
+    bookClass({ rakutenGenre: '文庫 > 小説・エッセイ' })?.divisionName,
+    '日本文学',
+  );
+  assert.equal(
+    bookClass({ rakutenGenre: 'ビジネス・経済・就職' })?.className,
+    '社会科学',
+  );
+});
+
+await test('enrichClasses: 楽天のIDの誤りは1回で止め、残りをNDLに回す', async () => {
+  const books = make([
+    { isbn13: '9784000000000' },
+    { isbn13: '9784003101018' },
+  ]).books;
+  const calls: string[] = [];
+  const result = await enrichClasses(
+    books,
+    rakutenDeps(
+      stub(
+        () => ({ status: 200, body: '[]' }),
+        (isbn) => ({ status: 200, body: ndlXml(isbn, '913') }),
+        calls,
+        () => ({
+          status: 400,
+          body: '{"error":"wrong_parameter","error_description":"specify valid applicationId"}',
+        }),
+      ),
+    ),
+    () => Promise.resolve(),
+    () => undefined,
+  );
+  assert.deepEqual(result.unreachable, { rakuten: 'auth' });
+  assert.deepEqual(result.bySource, { openbd: 0, rakuten: 0, ndl: 2 });
+  assert.equal(calls.filter((h) => h.endsWith('rakuten.co.jp')).length, 1);
 });
 
 await test('readingTypes / chaosMap: NDCのない本はCコードで分類する', () => {

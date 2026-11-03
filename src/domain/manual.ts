@@ -133,6 +133,7 @@ export function applyBookEdit(
   if (book.coverUrl) next.coverUrl = book.coverUrl;
   if (book.ndc) next.ndc = book.ndc;
   if (book.ccode) next.ccode = book.ccode;
+  if (book.rakutenGenre) next.rakutenGenre = book.rakutenGenre;
   if (book.asin) next.asin = book.asin;
   return { ok: true, value: next };
 }

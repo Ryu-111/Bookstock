@@ -16,6 +16,7 @@ import { EnrichRunner } from './ui/enrich-runner.js';
 import { classTargets } from './lookup/enrich.js';
 import { browserXmlParser } from './lookup/ndl.js';
 import { createThrottle } from './lookup/recommend.js';
+import { rakutenCache, rakutenThrottle } from './ui/rakuten-shared.js';
 import { RakutenSettings } from './ui/rakuten-settings.js';
 import { RecommendPage } from './ui/recommend.js';
 import { RecordPage } from './ui/record-page.js';
@@ -60,6 +61,9 @@ function useRoute(): Route {
   return route;
 }
 
+/** 分類の補完で、楽天・NDLに1冊ずつ問い合わせる間隔（負荷をかけないよう長めにとる）。 */
+const enrichPace = createThrottle(2000);
+
 const TABS = [
   ['shelf', '本棚', 'shelf'],
   ['recommend', 'おすすめ', 'recommend'],
@@ -83,6 +87,9 @@ export function App() {
   }>();
 
   const runner = useRef<EnrichRunner | undefined>(undefined);
+  // 裏の補完が始めるときに、最新の楽天の設定を読めるようにする
+  const rakutenRef = useRef(rakuten);
+  rakutenRef.current = rakuten;
   const updateAvailable = useUpdateAvailable();
   const [updateDismissed, setUpdateDismissed] = useState(false);
 
@@ -94,11 +101,22 @@ export function App() {
         const data = await repo.snapshot();
         setState({ kind: 'ready', repo, data });
         const enrich = new EnrichRunner(
-          {
-            fetch: (url, init) => window.fetch(url, init),
-            parseXml: browserXmlParser,
-            // NDLサーチに負荷をかけないよう、1.1秒に1件ずつ問い合わせる
-            throttle: createThrottle(1100),
+          () => {
+            const config = rakutenRef.current;
+            return {
+              fetch: (url, init) => window.fetch(url, init),
+              parseXml: browserXmlParser,
+              pace: enrichPace,
+              ...(config
+                ? {
+                    rakuten: {
+                      config,
+                      throttle: rakutenThrottle,
+                      cache: rakutenCache,
+                    },
+                  }
+                : {}),
+            };
           },
           async (id, patch) => {
             await repo.fillBook(id, patch);

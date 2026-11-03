@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import type { BookCandidate, ExportFile } from '../domain/book.js';
 import { ownedIndex } from '../domain/recommend.js';
 import {
-  createThrottle,
   recommendByAuthors,
   recommendRanking,
   recommendSeries,
@@ -12,16 +11,13 @@ import type { AuthorPick, RecommendDeps } from '../lookup/recommend.js';
 import type { RakutenConfig, RakutenGenre } from '../lookup/rakuten.js';
 import { Cover } from './cover.js';
 import { outcomeLabel } from './labels.js';
+import { rakutenCache, rakutenThrottle } from './rakuten-shared.js';
 import { href } from './route.js';
 import { SaveForm } from './save-form.js';
 import type { SaveHandler } from './save-form.js';
 
 /** 本（全体）のジャンルID。楽天ブックスの最上位。 */
 const ROOT_GENRE = '001';
-
-// 楽天の制限（1アプリIDにつき1秒1回）に合わせ、画面をまたいで共有する。
-const throttle = createThrottle(1100);
-const cache = new Map<string, string>();
 
 function Row({
   books,
@@ -141,8 +137,8 @@ export function RecommendPage({
     ? {
         fetch: (url, init) => window.fetch(url, init),
         rakuten,
-        throttle,
-        cache,
+        throttle: rakutenThrottle,
+        cache: rakutenCache,
       }
     : null;
 
