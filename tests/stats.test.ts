@@ -64,7 +64,10 @@ await test('年の境界: 12/31は前年、1/1は今年。読了日のない記�
   assert.equal(s.finished.count, 4);
   assert.equal(s.finished.uniqueBooks, 3);
   assert.equal(s.finished.byFormat.audiobook.count, 2);
-  assert.equal(s.finished.pages, 200);
+  // オーディオブックも本のページ数を数える（300ページ×2件）
+  assert.equal(s.finished.pages, 200 + 600);
+  assert.equal(s.finished.byFormat.audiobook.pages, 600);
+  assert.equal(s.finished.byFormat.ebook.pages, 200);
   assert.equal(s.finished.minutes, 600 + 510); // 長さのない1件は300ページ×1.7分で推定
   assert.equal(s.pagesMissing, 1);
   assert.equal(s.minutesMissing, 0);
@@ -81,7 +84,7 @@ await test('今年の1日あたりのページと月平均は今日までで割�
   const s = computeStats(data, { kind: 'year', year: 2026 }, '2026-10-31');
   assert.equal(s.days, 304); // 1/1〜10/31
   assert.equal(s.months, 10);
-  assert.equal(s.pagesPerDay, Math.round((200 / 304) * 10) / 10);
+  assert.equal(s.pagesPerDay, Math.round((800 / 304) * 10) / 10);
   assert.equal(s.booksPerMonth, 0.4);
 });
 

@@ -477,9 +477,17 @@ export function StatsPage({ data }: { data: ExportFile }) {
         <Tile
           label="ページ"
           value={num(f.pages)}
-          {...(stats.days > 0
-            ? { note: `1日あたり${num(stats.pagesPerDay)}ページ` }
-            : {})}
+          {...(f.byFormat.ebook.count > 0 || f.byFormat.audiobook.count > 0
+            ? {
+                note: FORMATS.filter((x) => f.byFormat[x].count > 0)
+                  .map(
+                    (x) => `${formatShortLabel[x]} ${num(f.byFormat[x].pages)}`,
+                  )
+                  .join('・'),
+              }
+            : stats.days > 0
+              ? { note: `1日あたり${num(stats.pagesPerDay)}ページ` }
+              : {})}
         />
         <Tile
           label="聴いた時間"
