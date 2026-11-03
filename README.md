@@ -27,7 +27,7 @@
 ## データとプライバシー
 
 - 記録はブラウザ（IndexedDB）にだけ保存されます。端末ごとに別々で、自動では同期しません。
-- アプリを更新（デプロイ）しても記録は消えません。保存先はブラウザで、公開URL（`https://ryu-111.github.io`）ごとに分かれています。
+- アプリを更新（デプロイ）しても記録は消えません。新しい版が公開されると、画面の下に「新しい版があります」と出ます。**更新** を押すと切り替わります。保存先はブラウザで、公開URL（`https://ryu-111.github.io`）ごとに分かれています。
 - ブラウザのデータを消したとき、ブラウザが容量を空けるときには消えることがあります。**設定** の **JSONで書き出す** で、ときどきバックアップしてください。
 - アプリは起動時にブラウザへ「消えにくい保存」を求めます。許可されたかは **設定** で確認できます。iPhoneでは、Safariの共有メニューから **ホーム画面に追加** して使うと消えにくくなります。
 - 本を検索するときは、ISBN・タイトル・著者名だけを書誌サービスに送ります。**おすすめ** タブを開いたときは、よく読む著者名と読んだシリーズ名を楽天ブックスに送ります。読書記録そのものは送りません。
@@ -91,7 +91,7 @@ TypeScript strict / ESM、Preact、Vite、ESLint、Prettier、Node標準テス�
 
 ### 公開
 
-mainにマージすると、`.github/workflows/pages.yml` が `npm run check` → ビルド → GitHub Pagesへのデプロイを行います。PRとmainへのpushでは `.github/workflows/check.yml` が検証します。
+mainにマージすると、`.github/workflows/pages.yml` が `npm run check` → ビルド → GitHub Pagesへのデプロイを行います。ビルドごとに `version.json`（版の印）を書き出し、アプリは起動時・画面に戻ったとき・30分ごとにこれを見て、更新を知らせます。PRとmainへのpushでは `.github/workflows/check.yml` が検証します。
 
 `.mcp.json`（Claude Code）と `.codex/config.toml`（Codex）には、ドキュメント用のMCP（context7、openaiDeveloperDocs）を設定しています。context7は環境変数 `CONTEXT7_API_KEY` を使い、値はリポジトリに書きません。
 

@@ -26,6 +26,7 @@ import type { Route } from './ui/route.js';
 import { Search } from './ui/search.js';
 import type { SaveHandler } from './ui/search.js';
 import { formatLabel } from './ui/labels.js';
+import { useUpdateAvailable } from './ui/update.js';
 import { Shelf } from './ui/shelf.js';
 import { StatsPage } from './ui/stats.js';
 
@@ -82,6 +83,8 @@ export function App() {
   }>();
 
   const runner = useRef<EnrichRunner | undefined>(undefined);
+  const updateAvailable = useUpdateAvailable();
+  const [updateDismissed, setUpdateDismissed] = useState(false);
 
   useEffect(() => {
     openDb(window.indexedDB)
@@ -119,6 +122,26 @@ export function App() {
       );
   }, []);
 
+  const updateBanner = updateAvailable && !updateDismissed && (
+    <div class="update-banner" role="status">
+      <span>新しい版があります</span>
+      <button
+        type="button"
+        class="button-plain"
+        onClick={() => setUpdateDismissed(true)}
+      >
+        あとで
+      </button>
+      <button
+        type="button"
+        class="update-reload"
+        onClick={() => window.location.reload()}
+      >
+        更新
+      </button>
+    </div>
+  );
+
   const tabBar = (
     <nav class="tab-bar" aria-label="メイン">
       {TABS.map(([page, label, icon]) => (
@@ -144,6 +167,7 @@ export function App() {
             <p role="alert">{state.message}</p>
           )}
         </main>
+        {updateBanner}
         {tabBar}
       </>
     );
@@ -264,6 +288,7 @@ export function App() {
           </>
         )}
       </main>
+      {updateBanner}
       {tabBar}
     </>
   );
