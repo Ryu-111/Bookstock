@@ -25,15 +25,14 @@ export function Diagnosis({
         <>
           <p class="headline">{d.headline}</p>
           <div class="type-grid">
-            {d.types.map((t) => (
-              <div
-                key={t.axis}
-                class={t.keyword ? 'type-card hit' : 'type-card'}
-              >
-                <strong>{t.label}</strong>
-                <span>{t.detail}</span>
-              </div>
-            ))}
+            {d.types
+              .filter((t) => t.keyword)
+              .map((t) => (
+                <div key={t.axis} class="type-card hit">
+                  <strong>{t.label}</strong>
+                  <span>{t.detail}</span>
+                </div>
+              ))}
           </div>
         </>
       )}

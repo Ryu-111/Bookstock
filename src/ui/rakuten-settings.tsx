@@ -94,15 +94,17 @@ export function RakutenSettings({
             autoComplete="off"
           />
         </Cell>
-        <Cell label="URL" stacked>
-          <input
-            aria-label="エンドポイントURL"
-            value={fields.endpoint}
-            onInput={set('endpoint')}
-            inputMode="url"
-            spellcheck={false}
-          />
-        </Cell>
+        {fields.endpoint !== DEFAULT_RAKUTEN_ENDPOINT && (
+          <Cell label="URL" stacked>
+            <input
+              aria-label="エンドポイントURL"
+              value={fields.endpoint}
+              onInput={set('endpoint')}
+              inputMode="url"
+              spellcheck={false}
+            />
+          </Cell>
+        )}
         <button type="submit" class="cell cell-button">
           保存
         </button>

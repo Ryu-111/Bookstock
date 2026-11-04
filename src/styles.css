@@ -1178,6 +1178,7 @@ textarea::placeholder {
   padding: 4px var(--gutter) 8px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--gutter);
   scrollbar-width: none;
   list-style: none;
 }
