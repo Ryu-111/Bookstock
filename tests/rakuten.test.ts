@@ -13,6 +13,9 @@ import {
 import {
   claimAutoEnrich,
   loadRakutenConfig,
+  loadShelfColumns,
+  nextShelfColumns,
+  saveShelfColumns,
   requestPersistence,
   saveRakutenConfig,
 } from '../src/storage/settings.js';
@@ -256,4 +259,21 @@ await test('claimAutoEnrich: 自動の補完は1日1回。記録できない環�
   // 時計が戻った（保存値が未来）ときは進める
   assert.equal(claimAutoEnrich(storage, 0), true);
   assert.equal(claimAutoEnrich(null, 0), true);
+});
+
+await test('本棚の列数: 2〜5列を保存し、壊れた値・使えないストレージは3列に戻す', () => {
+  const storage = memoryStorage();
+  assert.equal(loadShelfColumns(storage), 3);
+  saveShelfColumns(storage, 5);
+  assert.equal(loadShelfColumns(storage), 5);
+  storage.setItem('bookstock.shelf.columns', '9');
+  assert.equal(loadShelfColumns(storage), 3);
+  storage.setItem('bookstock.shelf.columns', 'abc');
+  assert.equal(loadShelfColumns(storage), 3);
+  assert.equal(loadShelfColumns(null), 3);
+  saveShelfColumns(null, 4); // 例外にしない
+  assert.deepEqual(
+    [2, 3, 4, 5].map((c) => nextShelfColumns(c as 2)),
+    [3, 4, 5, 2],
+  );
 });

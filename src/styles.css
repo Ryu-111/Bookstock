@@ -493,7 +493,7 @@ textarea::placeholder {
 
 .shelf {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  grid-template-columns: repeat(var(--columns, 3), minmax(0, 1fr));
   gap: 24px 16px;
   margin: 8px 0 0;
   padding: 0;
@@ -681,12 +681,6 @@ textarea::placeholder {
   object-fit: cover;
   border-radius: 14px;
   background: #000;
-}
-
-@media (min-width: 600px) {
-  .shelf {
-    grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
-  }
 }
 
 /* ---- 統計 ---- */
@@ -1455,4 +1449,19 @@ textarea::placeholder {
 .page-note {
   margin-top: 24px;
   text-align: center;
+}
+
+/* 列数が多いときは、間隔と文字を小さくして書影を見やすくする */
+.shelf[data-columns='4'],
+.shelf[data-columns='5'] {
+  gap: 16px 10px;
+}
+
+.shelf[data-columns='4'] .shelf-title,
+.shelf[data-columns='5'] .shelf-title {
+  font-size: 11px;
+}
+
+.shelf[data-columns='5'] .badge {
+  display: none;
 }

@@ -93,3 +93,36 @@ export function claimAutoEnrich(
   }
   return true;
 }
+
+export const SHELF_COLUMNS = [2, 3, 4, 5] as const;
+export type ShelfColumns = (typeof SHELF_COLUMNS)[number];
+export const DEFAULT_SHELF_COLUMNS: ShelfColumns = 3;
+const COLUMNS_KEY = 'bookstock.shelf.columns';
+
+/** 本棚の列数。保存値は検証し、読めなければ既定の3列。 */
+export function loadShelfColumns(storage: StorageLike | null): ShelfColumns {
+  try {
+    const value = Number(storage?.getItem(COLUMNS_KEY) ?? NaN);
+    return SHELF_COLUMNS.find((c) => c === value) ?? DEFAULT_SHELF_COLUMNS;
+  } catch {
+    return DEFAULT_SHELF_COLUMNS;
+  }
+}
+
+/** 保存できなくても、画面の列数は変えられる。 */
+export function saveShelfColumns(
+  storage: StorageLike | null,
+  columns: ShelfColumns,
+): void {
+  try {
+    storage?.setItem(COLUMNS_KEY, String(columns));
+  } catch {
+    // 保存できない環境では、次に開くとき既定に戻る
+  }
+}
+
+/** 2 → 3 → 4 → 5 → 2 の順に変える。 */
+export function nextShelfColumns(current: ShelfColumns): ShelfColumns {
+  const i = SHELF_COLUMNS.indexOf(current);
+  return SHELF_COLUMNS[(i + 1) % SHELF_COLUMNS.length] ?? DEFAULT_SHELF_COLUMNS;
+}

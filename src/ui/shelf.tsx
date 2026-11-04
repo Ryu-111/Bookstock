@@ -8,6 +8,12 @@ import { Cell, Group, Icon, Segmented } from './ios.js';
 import { formatLabel, formatShortLabel, statusLabel } from './labels.js';
 import { formatOptions } from './save-form.js';
 import { href } from './route.js';
+import {
+  browserStorage,
+  loadShelfColumns,
+  nextShelfColumns,
+  saveShelfColumns,
+} from '../storage/settings.js';
 
 /** 横にスクロールする絞り込みのチップ。もう一度押すと外れる。 */
 function Chips<T extends string>({
@@ -159,6 +165,9 @@ export function Shelf({
   /** 選択モードなら選んだ記録のid。nullなら通常モード。 */
   const [selected, setSelected] = useState<Set<string> | null>(null);
   const [sheet, setSheet] = useState(false);
+  const [columns, setColumns] = useState(() =>
+    loadShelfColumns(browserStorage()),
+  );
   const toggle = (id: string) => {
     if (!selected) return;
     const next = new Set(selected);
@@ -223,13 +232,27 @@ export function Shelf({
             </button>
           </div>
         ) : (
-          <button
-            type="button"
-            class="button-plain"
-            onClick={() => setSelected(new Set())}
-          >
-            選択
-          </button>
+          <div class="title-actions">
+            <button
+              type="button"
+              class="button-plain"
+              aria-label={`${columns}列で表示。押すと列数を変える`}
+              onClick={() => {
+                const next = nextShelfColumns(columns);
+                setColumns(next);
+                saveShelfColumns(browserStorage(), next);
+              }}
+            >
+              {columns}列
+            </button>
+            <button
+              type="button"
+              class="button-plain"
+              onClick={() => setSelected(new Set())}
+            >
+              選択
+            </button>
+          </div>
         )}
       </div>
       <label class="search-field">
@@ -285,7 +308,11 @@ export function Shelf({
           <p>条件に合う本がありません</p>
         </div>
       ) : (
-        <ul class={selecting ? 'shelf selecting' : 'shelf'}>
+        <ul
+          class={selecting ? 'shelf selecting' : 'shelf'}
+          data-columns={columns}
+          style={{ '--columns': columns }}
+        >
           {items.map(({ record, book }) => (
             <li key={record.id}>
               <a
