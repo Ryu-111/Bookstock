@@ -513,9 +513,6 @@ export function StatsPage({ data }: { data: ExportFile }) {
         />
       </div>
 
-      <Diagnosis data={data} period={period} />
-      <ReadingMap data={data} period={period} />
-
       <Group
         header={stats.granularity === 'year' ? '年別の読了' : '月別の読了'}
         label="月別の読了"
@@ -553,6 +550,9 @@ export function StatsPage({ data }: { data: ExportFile }) {
         </div>
       </Group>
 
+      <Diagnosis data={data} period={period} />
+      <ReadingMap data={data} period={period} />
+
       <Group header="いまの状態" label="いまの状態">
         <div class="card-body">
           <HBars
@@ -564,7 +564,7 @@ export function StatsPage({ data }: { data: ExportFile }) {
         </div>
       </Group>
 
-      {f.count > 0 && (
+      {f.count > 0 && f.count > (stats.ratings[0] ?? 0) && (
         <Group header="評価" label="評価">
           <div class="card-body">
             <HBars
@@ -579,29 +579,13 @@ export function StatsPage({ data }: { data: ExportFile }) {
         </Group>
       )}
 
-      {stats.ndc.length > 0 && (
-        <Group
-          header="分類（NDC）"
-          label="分類"
-          {...(stats.unclassified > 0
-            ? { footer: `分類のない本が${stats.unclassified}冊あります。` }
-            : {})}
-        >
-          <div class="card-body">
-            <HBars
-              rows={stats.ndc.map((x) => ({ label: x.label, value: x.count }))}
-            />
-          </div>
-        </Group>
-      )}
-
       <MissingMinutes stats={stats} data={data} />
       <Notes stats={stats} />
     </section>
   );
 }
 
-const MISSING_LIMIT = 20;
+const MISSING_LIMIT = 5;
 
 /** 長さを入れていないオーディオブックの一覧。記録の画面へ直しに行ける。 */
 function MissingMinutes({ stats, data }: { stats: Stats; data: ExportFile }) {
@@ -645,11 +629,11 @@ function MissingMinutes({ stats, data }: { stats: Stats; data: ExportFile }) {
 function Notes({ stats }: { stats: Stats }) {
   const notes = [
     stats.undated > 0 &&
-      `読了日のない読了記録が${stats.undated}件あり、集計に含めていません。記録の画面で読了日を入れると反映されます。`,
+      `読了日のない記録${stats.undated}件は、集計に含めていません。`,
     stats.pagesMissing > 0 &&
-      `ページ数のない本が${stats.pagesMissing}冊あり、ページ数は0として数えています。`,
+      `ページ数のない本${stats.pagesMissing}冊は、0ページで数えています。`,
     stats.minutesMissing > 0 &&
-      `長さ・進捗の分・ページ数のどれもないオーディオブックが${stats.minutesMissing}件あり、時間は0として数えています。上の一覧から長さを入れると反映されます。`,
+      `長さが分からないオーディオブック${stats.minutesMissing}件は、0分で数えています。`,
   ].filter((n): n is string => typeof n === 'string');
   if (notes.length === 0) return null;
   return (

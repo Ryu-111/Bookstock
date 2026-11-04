@@ -493,7 +493,7 @@ textarea::placeholder {
 
 .shelf {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  grid-template-columns: repeat(var(--columns, 3), minmax(0, 1fr));
   gap: 24px 16px;
   margin: 8px 0 0;
   padding: 0;
@@ -683,12 +683,6 @@ textarea::placeholder {
   background: #000;
 }
 
-@media (min-width: 600px) {
-  .shelf {
-    grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
-  }
-}
-
 /* ---- 統計 ---- */
 /*
  * 形式の3色。datavizの検証（validate_palette.js）を、セルの面の色
@@ -818,8 +812,9 @@ textarea::placeholder {
 }
 
 .chart-head .segmented {
+  order: -1;
   flex: none;
-  width: 180px;
+  width: 100%;
   margin: 0;
 }
 
@@ -1049,10 +1044,15 @@ textarea::placeholder {
 }
 
 .notes {
-  margin: 0 0 24px;
-  padding-left: 20px;
+  margin: 0 16px 24px;
+  padding: 0;
+  list-style: none;
   color: var(--secondary);
   font-size: 13px;
+}
+
+.notes li + li {
+  margin-top: 4px;
 }
 
 /* ---- 本棚の選択モード ---- */
@@ -1184,6 +1184,7 @@ textarea::placeholder {
   padding: 4px var(--gutter) 8px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--gutter);
   scrollbar-width: none;
   list-style: none;
 }
@@ -1288,7 +1289,7 @@ textarea::placeholder {
 .type-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
 }
 
 @media (min-width: 600px) {
@@ -1453,6 +1454,20 @@ textarea::placeholder {
 }
 
 .page-note {
-  margin-top: 24px;
-  text-align: center;
+  margin: 24px 16px 0;
+}
+
+/* 列数が多いときは、間隔と文字を小さくして書影を見やすくする */
+.shelf[data-columns='4'],
+.shelf[data-columns='5'] {
+  gap: 16px 10px;
+}
+
+.shelf[data-columns='4'] .shelf-title,
+.shelf[data-columns='5'] .shelf-title {
+  font-size: 11px;
+}
+
+.shelf[data-columns='5'] .badge {
+  display: none;
 }

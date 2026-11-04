@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { BookCandidate, ExportFile } from '../domain/book.js';
-import { leafGenre, ownedIndex, rankForYou } from '../domain/recommend.js';
+import { ownedIndex, rankForYou } from '../domain/recommend.js';
 import type { Candidate, GenreTaste, Scored } from '../domain/recommend.js';
 import {
   recommendByAuthors,
@@ -9,11 +9,7 @@ import {
   recommendRanking,
   recommendSeries,
 } from '../lookup/recommend.js';
-import type {
-  AuthorPick,
-  GenrePick,
-  RecommendDeps,
-} from '../lookup/recommend.js';
+import type { RecommendDeps } from '../lookup/recommend.js';
 import type { RakutenConfig, RakutenGenre } from '../lookup/rakuten.js';
 import { Cover } from './cover.js';
 import { outcomeLabel } from './labels.js';
@@ -41,14 +37,16 @@ function Row({
         <li key={b.isbn13 ?? b.title}>
           <button type="button" class="rec-item" onClick={() => onPick(b)}>
             <Cover book={b} />
-            <span class="shelf-title">{b.title}</span>
-            <span class="badge">
-              {[b.authors[0], b.publishedDate?.slice(0, 7)]
-                .filter(Boolean)
-                .join(' · ')}
+            <span
+              class={b.coverUrl ? 'shelf-title' : 'shelf-title visually-hidden'}
+            >
+              {b.title}
             </span>
+            {b.authors[0] && <span class="badge">{b.authors[0]}</span>}
             {reasons?.get(b)?.length ? (
-              <span class="rec-reason">{reasons.get(b)?.join('・')}</span>
+              <span class="rec-reason">
+                {reasons.get(b)?.slice(0, 2).join('・')}
+              </span>
             ) : null}
           </button>
         </li>
@@ -135,8 +133,6 @@ export function RecommendPage({
   onSave: SaveHandler;
 }) {
   const [series, setSeries] = useState<BookCandidate[]>([]);
-  const [authors, setAuthors] = useState<AuthorPick[]>([]);
-  const [genrePicks, setGenrePicks] = useState<GenrePick[]>([]);
   const [forYou, setForYou] = useState<Scored[]>([]);
   const [ranking, setRanking] = useState<BookCandidate[]>([]);
   const [genres, setGenres] = useState<RakutenGenre[]>([]);
@@ -170,14 +166,12 @@ export function RecommendPage({
         }),
         await recommendGenres(d, deps, (pick) => {
           candidates.push(...pick.candidates);
-          if (!cancelled) setGenrePicks((prev) => [...prev, pick]);
         }).then((r) => {
           tastes = r.genres;
           return r.failure;
         }),
         await recommendByAuthors(d, deps, (pick) => {
           candidates.push(...pick.candidates);
-          if (!cancelled) setAuthors((prev) => [...prev, pick]);
         }),
       ];
       const r = await recommendRanking(d, ROOT_GENRE, deps);
@@ -226,8 +220,7 @@ export function RecommendPage({
   const nothing =
     !loading &&
     series.length === 0 &&
-    authors.length === 0 &&
-    genrePicks.length === 0 &&
+    forYou.length === 0 &&
     ranking.length === 0;
   const forYouBooks = visible(forYou.map((s) => s.book));
   const reasons = new Map(forYou.map((s) => [s.book, s.reasons]));
@@ -257,22 +250,6 @@ export function RecommendPage({
           <Row books={visible(series)} onPick={setPicked} />
         </Section>
       )}
-
-      {genrePicks
-        .filter((g) => visible(g.books).length > 0)
-        .map((g) => (
-          <Section key={g.genre.id} title={`${leafGenre(g.genre.key)}の人気本`}>
-            <Row books={visible(g.books)} onPick={setPicked} />
-          </Section>
-        ))}
-
-      {authors
-        .filter((a) => visible(a.books).length > 0)
-        .map((a) => (
-          <Section key={a.author} title={`${a.author}の本`}>
-            <Row books={visible(a.books)} onPick={setPicked} />
-          </Section>
-        ))}
 
       {(ranking.length > 0 || genres.length > 0) && (
         <Section title="人気の本">

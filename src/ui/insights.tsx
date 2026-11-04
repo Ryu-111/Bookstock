@@ -18,22 +18,21 @@ export function Diagnosis({
   const d = readingTypes(data, period);
   return (
     <section class="insight" aria-label="読み方のタイプ">
-      <h2 class="rec-title">読み方のタイプ</h2>
+      <h3 class="group-header">読み方のタイプ</h3>
       {!d.enough ? (
         <p class="footnote">あと{MIN_BOOKS - d.count}冊読むと判定できます</p>
       ) : (
         <>
           <p class="headline">{d.headline}</p>
           <div class="type-grid">
-            {d.types.map((t) => (
-              <div
-                key={t.axis}
-                class={t.keyword ? 'type-card hit' : 'type-card'}
-              >
-                <strong>{t.label}</strong>
-                <span>{t.detail}</span>
-              </div>
-            ))}
+            {d.types
+              .filter((t) => t.keyword)
+              .map((t) => (
+                <div key={t.axis} class="type-card hit">
+                  <strong>{t.label}</strong>
+                  <span>{t.detail}</span>
+                </div>
+              ))}
           </div>
         </>
       )}
@@ -105,7 +104,7 @@ export function ReadingMap({
 
   return (
     <section class="insight" aria-label="読書マップ">
-      <h2 class="rec-title">読書マップ</h2>
+      <h3 class="group-header">読書マップ</h3>
       {unclassified / total >= 0.3 && (
         <p class="footnote">
           分類なし {unclassified}冊・

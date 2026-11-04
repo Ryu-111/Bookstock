@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import { FORMATS, STATUSES } from '../domain/book.js';
-import type { ExportFile, Format } from '../domain/book.js';
+import type { ExportFile, Format, ReadingRecord } from '../domain/book.js';
 import { allTags, filterRecords } from '../domain/shelf.js';
 import type { ShelfFilter } from '../domain/shelf.js';
 import { Cover } from './cover.js';
@@ -8,6 +8,12 @@ import { Cell, Group, Icon, Segmented } from './ios.js';
 import { formatLabel, formatShortLabel, statusLabel } from './labels.js';
 import { formatOptions } from './save-form.js';
 import { href } from './route.js';
+import {
+  browserStorage,
+  loadShelfColumns,
+  nextShelfColumns,
+  saveShelfColumns,
+} from '../storage/settings.js';
 
 /** 横にスクロールする絞り込みのチップ。もう一度押すと外れる。 */
 function Chips<T extends string>({
@@ -35,6 +41,16 @@ function Chips<T extends string>({
       ))}
     </div>
   );
+}
+
+/** 書影の下に出す短い注記。読了した紙の本は、ふつうなので何も出さない。 */
+function note(record: ReadingRecord): string {
+  return [
+    record.status === 'finished' ? '' : statusLabel[record.status],
+    record.format === 'paper' ? '' : formatShortLabel[record.format],
+  ]
+    .filter(Boolean)
+    .join(' · ');
 }
 
 /** 形式の一括変更。成功したらtrue。 */
@@ -159,6 +175,9 @@ export function Shelf({
   /** 選択モードなら選んだ記録のid。nullなら通常モード。 */
   const [selected, setSelected] = useState<Set<string> | null>(null);
   const [sheet, setSheet] = useState(false);
+  const [columns, setColumns] = useState(() =>
+    loadShelfColumns(browserStorage()),
+  );
   const toggle = (id: string) => {
     if (!selected) return;
     const next = new Set(selected);
@@ -223,13 +242,27 @@ export function Shelf({
             </button>
           </div>
         ) : (
-          <button
-            type="button"
-            class="button-plain"
-            onClick={() => setSelected(new Set())}
-          >
-            選択
-          </button>
+          <div class="title-actions">
+            <button
+              type="button"
+              class="button-plain"
+              aria-label={`${columns}列で表示。押すと列数を変える`}
+              onClick={() => {
+                const next = nextShelfColumns(columns);
+                setColumns(next);
+                saveShelfColumns(browserStorage(), next);
+              }}
+            >
+              {columns}列
+            </button>
+            <button
+              type="button"
+              class="button-plain"
+              onClick={() => setSelected(new Set())}
+            >
+              選択
+            </button>
+          </div>
         )}
       </div>
       <label class="search-field">
@@ -255,37 +288,40 @@ export function Shelf({
           value={filter.status}
           onChange={(v) => choose('status', v)}
         />
-      </div>
-      {tags.length > 0 && (
-        <div class="chips">
+        {tags.length > 0 && (
           <Chips
             label="タグで絞り込む"
             options={tags.map((t) => [t, `#${t}`] as const)}
             value={filter.tag}
             onChange={(v) => choose('tag', v)}
           />
-        </div>
-      )}
+        )}
+      </div>
       <div class="shelf-bar">
         <p class="footnote" aria-live="polite">
           {items.length}冊
         </p>
-        <Segmented
-          label="並び順"
-          options={[
-            ['recent', '最近'],
-            ['title', 'タイトル'],
-          ]}
-          value={filter.sort ?? 'recent'}
-          onChange={(v) => choose('sort', v === 'recent' ? undefined : v)}
-        />
+        <button
+          type="button"
+          class="button-plain"
+          aria-label="並び順を変える"
+          onClick={() =>
+            choose('sort', filter.sort === 'title' ? undefined : 'title')
+          }
+        >
+          {filter.sort === 'title' ? 'タイトル順' : '最近順'}
+        </button>
       </div>
       {items.length === 0 ? (
         <div class="empty">
           <p>条件に合う本がありません</p>
         </div>
       ) : (
-        <ul class={selecting ? 'shelf selecting' : 'shelf'}>
+        <ul
+          class={selecting ? 'shelf selecting' : 'shelf'}
+          data-columns={columns}
+          style={{ '--columns': columns }}
+        >
           {items.map(({ record, book }) => (
             <li key={record.id}>
               <a
@@ -309,12 +345,20 @@ export function Shelf({
                     </span>
                   )}
                 </span>
-                <span class="shelf-title">{book.title}</span>
-                <span class={`badge status-${record.status}`}>
-                  {statusLabel[record.status]}
-                  {record.format !== 'paper' &&
-                    ` · ${formatShortLabel[record.format]}`}
+                <span
+                  class={
+                    book.coverUrl
+                      ? 'shelf-title'
+                      : 'shelf-title visually-hidden'
+                  }
+                >
+                  {book.title}
                 </span>
+                {note(record) && (
+                  <span class={`badge status-${record.status}`}>
+                    {note(record)}
+                  </span>
+                )}
               </a>
             </li>
           ))}

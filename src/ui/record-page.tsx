@@ -88,6 +88,7 @@ function BookInfo({ book, actions }: { book: Book; actions: RecordActions }) {
     book.publisher,
     book.publishedDate,
     book.pageCount && `${book.pageCount}ページ`,
+    book.isbn13 && `ISBN ${book.isbn13}`,
   ].filter(Boolean);
   return (
     <header class="book-hero">
@@ -95,7 +96,6 @@ function BookInfo({ book, actions }: { book: Book; actions: RecordActions }) {
       <h1>{book.title}</h1>
       <p class="secondary">{book.authors.join('、') || '著者不明'}</p>
       {meta.length > 0 && <p class="footnote">{meta.join(' · ')}</p>}
-      {book.isbn13 && <p class="footnote">ISBN {book.isbn13}</p>}
       <button
         type="button"
         class="button-plain"
