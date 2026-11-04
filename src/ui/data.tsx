@@ -57,7 +57,7 @@ export function DataPanel({
       <h1 class="large-title">設定</h1>
       <Group
         header="バックアップ"
-        footer="記録はこのブラウザにだけ保存されます。アプリを更新しても消えませんが、ブラウザのデータを消したときや、ブラウザが容量を空けるときに失われることがあります。定期的に書き出してください。iPhoneでは、Safariの共有メニューから「ホーム画面に追加」して使うと消えにくくなります。"
+        footer="記録はこのブラウザにだけあります。ときどき書き出してください。"
       >
         <div class="cell">
           <span class="cell-label">消えにくい保存</span>
@@ -65,9 +65,9 @@ export function DataPanel({
             {persistence === 'persisted'
               ? '有効'
               : persistence === 'best-effort'
-                ? 'ブラウザの判断で消える場合あり'
+                ? '未許可'
                 : persistence === 'unsupported'
-                  ? '非対応のブラウザ'
+                  ? '非対応'
                   : '確認中'}
           </span>
         </div>
@@ -85,10 +85,7 @@ export function DataPanel({
           JSONで書き出す
         </button>
       </Group>
-      <Group
-        header="読み込み"
-        footer="統合は同じIDの記録を上書きし、ほかは残します。置換は今のデータをすべて消します。"
-      >
+      <Group header="読み込み" footer="置換は今のデータをすべて消します。">
         <Cell label="読み込み方" control={false}>
           <Segmented
             label="読み込み方"

@@ -20,7 +20,7 @@ export function EnrichPanel({
     <Group
       header="分類を補完"
       label="分類を補完"
-      footer="ISBNだけをopenBD・楽天ブックス（設定した場合）・国立国会図書館サーチに送り、分類やジャンルを取得します。統計の「読書マップ」とタイプ診断に使います。楽天と国立国会図書館サーチには2秒に1冊ずつ問い合わせます。起動時に1日1回、裏で自動に進みます。ほかの画面に移っても続きます。"
+      footer="読書マップに使います。ISBNだけを送ります。"
     >
       <div class="cell">
         <span class="cell-label">分類のない本</span>

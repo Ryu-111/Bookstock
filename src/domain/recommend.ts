@@ -175,19 +175,19 @@ export function rankForYou(
       .find((a) => a !== undefined);
     if (author) {
       score += 3 * Math.max(0, author.points / topAuthor);
-      reasons.push(`よく読む著者（${author.count}冊）`);
+      reasons.push(`${author.count}冊読んだ著者`);
     }
     const genre = genres.find(
       (g) => g.id && [...genreIds].some((id) => id.startsWith(g.id ?? '')),
     );
     if (genre) {
       score += 2 * Math.max(0, genre.points / topGenre);
-      reasons.push(`よく読む${leafGenre(genre.key)}`);
+      reasons.push(leafGenre(genre.key));
     }
     const best = Math.min(...ranks);
     if (Number.isFinite(best)) {
       score += Math.max(0, 1 - best / 30);
-      if (best < 10) reasons.push(`売れている（${best + 1}位）`);
+      if (best < 10) reasons.push(`売れ筋${best + 1}位`);
     }
     const released = book.publishedDate
       ? Date.parse(book.publishedDate.padEnd(10, '-01').slice(0, 10))

@@ -477,9 +477,17 @@ export function StatsPage({ data }: { data: ExportFile }) {
         <Tile
           label="ページ"
           value={num(f.pages)}
-          {...(stats.days > 0
-            ? { note: `1日あたり${num(stats.pagesPerDay)}ページ` }
-            : {})}
+          {...(f.byFormat.ebook.count > 0 || f.byFormat.audiobook.count > 0
+            ? {
+                note: FORMATS.filter((x) => f.byFormat[x].count > 0)
+                  .map(
+                    (x) => `${formatShortLabel[x]} ${num(f.byFormat[x].pages)}`,
+                  )
+                  .join('・'),
+              }
+            : stats.days > 0
+              ? { note: `1日あたり${num(stats.pagesPerDay)}ページ` }
+              : {})}
         />
         <Tile
           label="聴いた時間"
@@ -488,7 +496,7 @@ export function StatsPage({ data }: { data: ExportFile }) {
           note={[
             `オーディオ${num(f.byFormat.audiobook.count)}冊`,
             stats.minutesEstimated > 0 &&
-              `うち推定${num(Math.round(stats.estimatedMinutes / 6) / 10)}時間（ページ数から）`,
+              `うち推定${num(Math.round(stats.estimatedMinutes / 6) / 10)}時間`,
             stats.minutesMissing > 0 &&
               `長さ不明${num(stats.minutesMissing)}冊`,
           ]
@@ -539,11 +547,7 @@ export function StatsPage({ data }: { data: ExportFile }) {
         </div>
       </Group>
 
-      <Group
-        header="読書カレンダー"
-        label="読書カレンダー"
-        footer="進捗のページ数と分を合わせた量で色の濃さを決めています。読了した日も色が付きます。"
-      >
+      <Group header="読書カレンダー" label="読書カレンダー">
         <div class="card-body">
           <Calendar stats={stats} />
         </div>
@@ -612,7 +616,7 @@ function MissingMinutes({ stats, data }: { stats: Stats; data: ExportFile }) {
     <Group
       header="長さ未入力のオーディオブック"
       label="長さ未入力のオーディオブック"
-      footer={`「推定」の本はページ数から長さを見積もって数えています。記録の画面で正確な「長さ（分）」を入れると置き換わります。${rest > 0 ? `ほかに${rest}冊あります。` : ''}`}
+      footer={`推定はページ数からの見積もりです。${rest > 0 ? `ほかに${rest}冊。` : ''}`}
     >
       {shown.map((id) => {
         const record = records.get(id);

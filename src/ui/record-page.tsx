@@ -23,7 +23,7 @@ import type {
 import { Cover } from './cover.js';
 import { formatMinutes } from './stats.js';
 import { Cell, Group, Icon, Segmented, Stars } from './ios.js';
-import { formatLabel, sourceLabel, statusLabel, todayLocal } from './labels.js';
+import { formatLabel, statusLabel, todayLocal } from './labels.js';
 import { BookFields } from './manual-form.js';
 import { href } from './route.js';
 import { SaveForm, formatOptions } from './save-form.js';
@@ -95,10 +95,7 @@ function BookInfo({ book, actions }: { book: Book; actions: RecordActions }) {
       <h1>{book.title}</h1>
       <p class="secondary">{book.authors.join('、') || '著者不明'}</p>
       {meta.length > 0 && <p class="footnote">{meta.join(' · ')}</p>}
-      <p class="footnote">
-        {book.isbn13 && `ISBN ${book.isbn13} · `}出典:{' '}
-        {sourceLabel[book.source]}
-      </p>
+      {book.isbn13 && <p class="footnote">ISBN {book.isbn13}</p>}
       <button
         type="button"
         class="button-plain"

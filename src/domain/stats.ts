@@ -232,9 +232,12 @@ export function computeStats(
       record.format === 'audiobook'
         ? audioMinutes(record, book, loggedMinutes.get(record.id) ?? 0)
         : undefined;
-    const amount: Amount = audio
-      ? { count: 1, pages: 0, minutes: audio.minutes }
-      : { count: 1, pages: book?.pageCount ?? 0, minutes: 0 };
+    // オーディオブックも本のページ数を数える（聴いた時間とは別に）
+    const amount: Amount = {
+      count: 1,
+      pages: book?.pageCount ?? 0,
+      minutes: audio?.minutes ?? 0,
+    };
     add(finished, amount);
     add(finished.byFormat[record.format], amount);
     uniqueBooks.add(record.bookId);
