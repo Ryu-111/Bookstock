@@ -812,8 +812,9 @@ textarea::placeholder {
 }
 
 .chart-head .segmented {
+  order: -1;
   flex: none;
-  width: 180px;
+  width: 100%;
   margin: 0;
 }
 
@@ -1043,10 +1044,15 @@ textarea::placeholder {
 }
 
 .notes {
-  margin: 0 0 24px;
-  padding-left: 20px;
+  margin: 0 16px 24px;
+  padding: 0;
+  list-style: none;
   color: var(--secondary);
   font-size: 13px;
+}
+
+.notes li + li {
+  margin-top: 4px;
 }
 
 /* ---- 本棚の選択モード ---- */
@@ -1283,7 +1289,7 @@ textarea::placeholder {
 .type-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
 }
 
 @media (min-width: 600px) {
@@ -1448,8 +1454,7 @@ textarea::placeholder {
 }
 
 .page-note {
-  margin-top: 24px;
-  text-align: center;
+  margin: 24px 16px 0;
 }
 
 /* 列数が多いときは、間隔と文字を小さくして書影を見やすくする */

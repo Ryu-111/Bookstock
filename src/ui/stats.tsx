@@ -513,9 +513,6 @@ export function StatsPage({ data }: { data: ExportFile }) {
         />
       </div>
 
-      <Diagnosis data={data} period={period} />
-      <ReadingMap data={data} period={period} />
-
       <Group
         header={stats.granularity === 'year' ? '年別の読了' : '月別の読了'}
         label="月別の読了"
@@ -552,6 +549,9 @@ export function StatsPage({ data }: { data: ExportFile }) {
           <Calendar stats={stats} />
         </div>
       </Group>
+
+      <Diagnosis data={data} period={period} />
+      <ReadingMap data={data} period={period} />
 
       <Group header="いまの状態" label="いまの状態">
         <div class="card-body">
