@@ -18,6 +18,9 @@
 - formatterはPrettier、lintはESLint。書式ルールを手で重複定義しない。any、lint無効化、`@ts-ignore`で問題を隠さない。
 - APIキーを要するサービスを使わない（ADR-0003）。読書記録のデータは端末の外へ送らない（ADR-0001）。
 - 上流のコードを流用した場合は出典とライセンスを残す。
+- 依存の追加・更新は `npm run audit`（moderate以上で失敗）を通す。`overrides` を使った場合は理由をコミットに書く。公開直後の版は避ける（Dependabotは7日待つ）。
+- GitHub Actionsは `permissions` を最小にし、`persist-credentials: false` とタイムアウトを付ける。`.github/workflows/security.yml`（audit・dependency-review・CodeQL）を壊さない。
+- `index.html` のCSPを緩めない。外部ホストを増やす変更は、CSPとADR-0001/0003への影響を先に確認する。
 
 ## 検証と完了
 
@@ -28,4 +31,4 @@
 
 ## コマンド
 
-`npm ci` / `npm run dev` / `npm run format` / `npm run format:check` / `npm run lint` / `npm run typecheck` / `npm test` / `npm run build` / `npm run check`
+`npm ci` / `npm run dev` / `npm run format` / `npm run format:check` / `npm run lint` / `npm run typecheck` / `npm test` / `npm run build` / `npm run check` / `npm run audit`
