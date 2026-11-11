@@ -4,7 +4,12 @@ import { test } from 'node:test';
 import { DOMParser } from '@xmldom/xmldom';
 import { fetchText } from '../src/lookup/http.js';
 import type { FetchLike } from '../src/lookup/http.js';
-import { lookupIsbn, searchBooks, testRakuten } from '../src/lookup/index.js';
+import {
+  lookupIsbn,
+  rankByTitle,
+  searchBooks,
+  testRakuten,
+} from '../src/lookup/index.js';
 import type { LookupDeps } from '../src/lookup/index.js';
 import { parseNdl } from '../src/lookup/ndl.js';
 
@@ -312,5 +317,62 @@ await test('楽天: 403で想定外の本文なら、許可サイトのエラー
   assert.equal(
     (await testRakuten(rakuten, deps(html.fetch))).detail,
     'HTTP 403: Forbidden',
+  );
+});
+
+await test('searchBooks（題名）: 全角半角と空白をそろえ、楽天には売れている順で30件を求める', async () => {
+  const urls: string[] = [];
+  const fetch: FetchLike = (url) => {
+    urls.push(url);
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      text: () => Promise.resolve('{}'),
+    });
+  };
+  await searchBooks('　ＡＩ　 時代 ', 'title', { ...deps(fetch), rakuten });
+  const r = new URL(urls[0] ?? '');
+  assert.equal(r.searchParams.get('title'), 'AI 時代');
+  assert.equal(r.searchParams.get('sort'), 'sales');
+  assert.equal(r.searchParams.get('hits'), '30');
+  assert.equal(new URL(urls[1] ?? '').searchParams.get('title'), 'AI 時代');
+});
+
+await test('rankByTitle: 題名が近い順に並べ、同じ順位では元の順を保つ', () => {
+  const book = (title: string, titleKana?: string) => ({
+    title,
+    authors: [],
+    source: 'rakuten' as const,
+    ...(titleKana ? { titleKana } : {}),
+  });
+  const ranked = rankByTitle(
+    [
+      book('まったく別の本'),
+      book('夜のコンビニ'),
+      book('コンビニ人間'),
+      book('こんびに', 'コンビニ'),
+      book('コンビニ'),
+      book('ＣＯＮＢＩＮＩ と 人間'),
+    ],
+    'コンビニ',
+  );
+  assert.deepEqual(
+    ranked.map((b) => b.title),
+    [
+      'コンビニ',
+      'コンビニ人間',
+      '夜のコンビニ',
+      'こんびに',
+      'まったく別の本',
+      'ＣＯＮＢＩＮＩ と 人間',
+    ],
+  );
+  // 空白で区切った言葉は、すべて含めば上に来る
+  assert.equal(
+    rankByTitle(
+      [book('別の本'), book('人間とコンビニの話')],
+      'コンビニ 人間',
+    )[0]?.title,
+    '人間とコンビニの話',
   );
 });
