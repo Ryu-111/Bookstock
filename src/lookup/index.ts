@@ -153,7 +153,8 @@ export async function searchBooks(
   field: SearchField,
   deps: LookupDeps,
 ): Promise<{ books: BookCandidate[]; attempts: Attempt[] }> {
-  const q = input.trim();
+  // 全角・半角の違いと、続いた空白をそろえて送る
+  const q = input.normalize('NFKC').replace(/\s+/g, ' ').trim();
   if (!q) return { books: [], attempts: [] };
   const results = await Promise.all([
     ...(deps.rakuten
@@ -162,7 +163,10 @@ export async function searchBooks(
             'rakuten',
             rakutenUrl(
               deps.rakuten,
-              field === 'author' ? { author: q } : { title: q },
+              // 題名の一部だと候補が多いので、売れている順に多めに取る
+              field === 'author'
+                ? { author: q }
+                : { title: q, sort: 'sales', hits: 30 },
             ),
             parseRakuten,
             deps,
@@ -183,10 +187,44 @@ export async function searchBooks(
     const existing = byKey.get(k);
     byKey.set(k, existing ? fill(existing, book) : book);
   }
+  const books = [...byKey.values()];
   return {
-    books: [...byKey.values()],
+    books: field === 'title' ? rankByTitle(books, q) : books,
     attempts: results.map((r) => r.attempt),
   };
+}
+
+/** 比較用に、全角半角・大文字小文字・空白と記号の違いをそろえる。 */
+function fold(text: string): string {
+  return text
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[\s・:：、,.。!！?？「」『』()（）[\]【】〈〉《》\-－―~〜]/g, '');
+}
+
+/**
+ * 題名で探した結果を、探した言葉に近い順に並べ替える。
+ * 題名が同じ → 題名がその言葉で始まる → 題名に含む → 読み仮名に含む → それ以外。同じ順位では元の順を保つ。
+ */
+export function rankByTitle(
+  books: BookCandidate[],
+  query: string,
+): BookCandidate[] {
+  const q = fold(query);
+  const words = query.normalize('NFKC').split(' ').map(fold).filter(Boolean);
+  const score = (book: BookCandidate): number => {
+    const t = fold(book.title);
+    if (t === q) return 0;
+    if (t.startsWith(q)) return 1;
+    if (t.includes(q)) return 2;
+    if (words.length > 1 && words.every((w) => t.includes(w))) return 3;
+    if (book.titleKana && fold(book.titleKana).includes(q)) return 4;
+    return 5;
+  };
+  return books
+    .map((book, i) => ({ book, i, s: score(book) }))
+    .sort((a, b) => a.s - b.s || a.i - b.i)
+    .map((x) => x.book);
 }
 
 /** 設定画面の接続テスト。楽天だけを1件引いて結果を返す。 */
