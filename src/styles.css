@@ -1,51 +1,57 @@
 /*
- * Appleのヒューマンインターフェイスガイドラインを参考にした独自のスタイル。
- * 色はiOSのシステムカラーに近い値、余白は8pt単位、タップ領域は44pt以上。
+ * Meta の Astryx（Neutral テーマ、MIT）の値を写した独自のスタイル。
+ * ライブラリ（React・StyleX）は使わず、色・角丸・影・余白・文字の値だけを CSS 変数で再現する。
+ * 出典: @astryxdesign/theme-neutral 0.7.15 の theme.css、@astryxdesign/core 0.7.15。
+ * 余白は4px単位、タップ領域は44px以上を保つ。
  */
 :root {
   color-scheme: light dark;
-  --bg: #f2f2f7; /* grouped background */
-  --cell: #ffffff;
-  --fill: rgba(118, 118, 128, 0.12);
-  --fill-strong: rgba(118, 118, 128, 0.2);
-  --label: #000000;
-  --secondary: rgba(60, 60, 67, 0.6);
-  --tertiary: rgba(60, 60, 67, 0.3);
-  --separator: rgba(60, 60, 67, 0.29);
-  --tint: #ff9500; /* Booksに近いオレンジ */
-  --tint-soft: rgba(255, 149, 0, 0.14);
-  --on-tint: #ffffff;
-  --red: #ff3b30;
-  --bar: rgba(249, 249, 249, 0.82);
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.12), 0 6px 16px rgba(0, 0, 0, 0.1);
-  --radius: 10px;
+  --bg: #f1f1f1; /* --color-background-body */
+  --cell: #ffffff; /* --color-background-surface */
+  --fill: rgba(0, 0, 0, 0.06); /* --color-neutral */
+  --fill-strong: rgba(0, 0, 0, 0.1); /* --color-overlay-pressed */
+  --label: #000000; /* --color-text-primary */
+  --secondary: #474747; /* --color-text-secondary */
+  --tertiary: #919191; /* --color-text-disabled */
+  --separator: rgba(0, 0, 0, 0.08); /* --color-border */
+  --tint: #1b1b1b; /* --color-accent（Neutral は白黒） */
+  --tint-soft: rgba(0, 0, 0, 0.06);
+  --on-tint: #ffffff; /* --color-on-accent */
+  --red: #c9303a; /* --color-error */
+  --bar: rgba(255, 255, 255, 0.86);
+  /* --shadow-low */
+  --shadow: 0 2px 4px rgba(0, 0, 0, 0.05), 0 4px 8px rgba(0, 0, 0, 0.1);
+  --radius: 12px; /* --radius-container */
+  --radius-element: 10px; /* --radius-element */
+  --radius-inner: 6px; /* --radius-inner */
   --gutter: 16px;
   font-family:
-    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Hiragino Sans',
-    'Hiragino Kaku Gothic ProN', 'Noto Sans JP', system-ui, sans-serif;
-  font-size: 17px;
-  line-height: 1.35;
-  letter-spacing: -0.01em;
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Hiragino Sans',
+    'Hiragino Kaku Gothic ProN', 'Noto Sans JP', Helvetica, Arial, sans-serif;
+  font-size: 16px; /* --text-body-size */
+  line-height: 1.5; /* --text-body-leading */
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #000000;
-    --cell: #1c1c1e;
-    --fill: rgba(118, 118, 128, 0.24);
-    --fill-strong: rgba(118, 118, 128, 0.36);
+    --bg: #1b1b1b;
+    --cell: #262626;
+    --fill: rgba(255, 255, 255, 0.1);
+    --fill-strong: rgba(255, 255, 255, 0.15);
     --label: #ffffff;
-    --secondary: rgba(235, 235, 245, 0.6);
-    --tertiary: rgba(235, 235, 245, 0.3);
-    --separator: rgba(84, 84, 88, 0.6);
-    --tint: #ff9f0a;
-    --tint-soft: rgba(255, 159, 10, 0.18);
-    --on-tint: #000000;
-    --red: #ff453a;
-    --bar: rgba(22, 22, 23, 0.8);
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.6), 0 6px 16px rgba(0, 0, 0, 0.5);
+    --secondary: #9e9e9e;
+    --tertiary: #6a6a6a;
+    --separator: rgba(255, 255, 255, 0.1);
+    --tint: #f1f1f1;
+    --tint-soft: rgba(255, 255, 255, 0.1);
+    --on-tint: #111111;
+    --red: #ff705d;
+    --bar: rgba(38, 38, 38, 0.86);
+    --shadow:
+      0 2px 4px rgba(0, 0, 0, 0.25), 0 4px 8px rgba(0, 0, 0, 0.4),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.08);
   }
 }
 
@@ -79,10 +85,10 @@ p {
 }
 
 .large-title {
-  margin: 12px 0 12px;
-  font-size: 34px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
+  margin: 16px 0;
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.38;
 }
 
 .secondary {
@@ -119,9 +125,9 @@ p {
   justify-content: space-around;
   padding: 6px 0 calc(env(safe-area-inset-bottom) + 4px);
   background: var(--bar);
-  border-top: 0.5px solid var(--separator);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  backdrop-filter: saturate(180%) blur(20px);
+  border-top: 1px solid var(--separator);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
 }
 
 .tab-bar a {
@@ -137,12 +143,13 @@ p {
 }
 
 .tab-bar .icon {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
 }
 
 .tab-bar a[aria-current='page'] {
   color: var(--tint);
+  font-weight: 600;
 }
 
 /* ---- ボタン ---- */
@@ -166,11 +173,11 @@ button:disabled {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 50px;
-  padding: 0 20px;
-  border-radius: 12px;
-  font-size: 17px;
-  font-weight: 600;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: var(--radius-element);
+  font-size: 16px;
+  font-weight: 500;
 }
 
 .button-filled {
@@ -190,6 +197,7 @@ button:disabled {
   min-height: 44px;
   padding: 0 4px;
   color: var(--tint);
+  font-weight: 500;
 }
 
 .destructive {
@@ -238,11 +246,11 @@ textarea::placeholder {
 .search-field {
   display: flex;
   align-items: center;
-  gap: 6px;
-  height: 36px;
-  padding: 0 8px;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
   margin: 0 0 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-element);
   background: var(--fill);
   color: var(--secondary);
 }
@@ -267,11 +275,10 @@ textarea::placeholder {
 }
 
 .group-header {
-  margin: 0 16px 6px;
+  margin: 0 16px 8px;
   color: var(--secondary);
   font-size: 13px;
-  font-weight: 400;
-  text-transform: uppercase;
+  font-weight: 600;
 }
 
 .group-footer {
@@ -282,6 +289,7 @@ textarea::placeholder {
 
 .group-body {
   overflow: hidden;
+  border: 1px solid var(--separator);
   border-radius: var(--radius);
   background: var(--cell);
 }
@@ -304,7 +312,7 @@ textarea::placeholder {
   top: 0;
   left: 16px;
   right: 0;
-  border-top: 0.5px solid var(--separator);
+  border-top: 1px solid var(--separator);
 }
 
 .cell-label {
@@ -356,6 +364,7 @@ textarea::placeholder {
 .cell-button {
   justify-content: center;
   color: var(--tint);
+  font-weight: 500;
   cursor: pointer;
 }
 
@@ -392,31 +401,31 @@ textarea::placeholder {
   max-width: 320px;
   margin-left: auto;
   padding: 2px;
-  border-radius: 9px;
+  border-radius: var(--radius-element);
   background: var(--fill);
 }
 
 .segmented button {
   flex: 1;
-  min-height: 30px;
-  padding: 0 6px;
-  border-radius: 7px;
-  font-size: 13px;
+  min-height: 32px;
+  padding: 0 8px;
+  border-radius: 8px;
+  color: var(--secondary);
+  font-size: 14px;
   font-weight: 500;
   white-space: nowrap;
 }
 
 .segmented button[aria-checked='true'] {
   background: var(--cell);
-  box-shadow:
-    0 3px 8px rgba(0, 0, 0, 0.12),
-    0 3px 1px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow);
+  color: var(--label);
   font-weight: 600;
 }
 
 @media (prefers-color-scheme: dark) {
   .segmented button[aria-checked='true'] {
-    background: #636366;
+    background: #474747;
   }
 }
 
@@ -466,10 +475,11 @@ textarea::placeholder {
 .chips button {
   flex: none;
   min-height: 32px;
-  padding: 0 14px;
-  border-radius: 16px;
+  padding: 0 12px;
+  border-radius: 9999px;
   background: var(--fill);
-  font-size: 15px;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .chips button[aria-pressed='true'] {
@@ -694,10 +704,11 @@ textarea::placeholder {
   --fmt-ebook: #1baf7a;
   --fmt-audiobook: #6250d6;
   --heat-0: var(--fill);
-  --heat-1: rgba(255, 149, 0, 0.3);
-  --heat-2: rgba(255, 149, 0, 0.55);
-  --heat-3: rgba(255, 149, 0, 0.8);
-  --heat-4: #ff9500;
+  /* Astryx の neutral の段階（薄い→濃い） */
+  --heat-1: #d4d4d4;
+  --heat-2: #9e9e9e;
+  --heat-3: #6a6a6a;
+  --heat-4: #1b1b1b;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -705,10 +716,10 @@ textarea::placeholder {
     --fmt-paper: #3987e5;
     --fmt-ebook: #199e70;
     --fmt-audiobook: #9085e9;
-    --heat-1: rgba(255, 159, 10, 0.3);
-    --heat-2: rgba(255, 159, 10, 0.55);
-    --heat-3: rgba(255, 159, 10, 0.8);
-    --heat-4: #ff9f0a;
+    --heat-1: #474747;
+    --heat-2: #6a6a6a;
+    --heat-3: #9e9e9e;
+    --heat-4: #f1f1f1;
   }
 }
 
@@ -764,7 +775,8 @@ textarea::placeholder {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 12px 14px;
+  padding: 12px 16px;
+  border: 1px solid var(--separator);
   border-radius: var(--radius);
   background: var(--cell);
   min-width: 0;
@@ -1117,9 +1129,9 @@ textarea::placeholder {
   min-height: 48px;
   padding: 0 16px;
   background: var(--bar);
-  border-top: 0.5px solid var(--separator);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  backdrop-filter: saturate(180%) blur(20px);
+  border-top: 1px solid var(--separator);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
   font-size: 15px;
 }
 
@@ -1166,9 +1178,9 @@ textarea::placeholder {
 }
 
 .rec-title {
-  margin: 0 0 2px;
-  font-size: 20px;
-  font-weight: 700;
+  margin: 0 0 4px;
+  font-size: 19px;
+  font-weight: 600;
 }
 
 .rec-section > .footnote {
@@ -1280,9 +1292,9 @@ textarea::placeholder {
 }
 
 .headline {
-  margin: 4px 0 0;
+  margin: 0 0 8px;
   font-size: 22px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--tint);
 }
 
@@ -1302,7 +1314,8 @@ textarea::placeholder {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 12px 14px;
+  padding: 12px 16px;
+  border: 1px solid var(--separator);
   border-radius: var(--radius);
   background: var(--cell);
 }
@@ -1332,8 +1345,9 @@ textarea::placeholder {
   align-items: stretch;
   gap: 6px;
   min-width: 0;
-  padding: 10px 12px;
-  border-radius: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius);
   background: var(--cell);
   text-align: left;
   border-top: 4px solid var(--region, var(--tertiary));
