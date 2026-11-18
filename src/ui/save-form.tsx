@@ -23,12 +23,15 @@ export function SaveForm({
   onSave,
   submitLabel = '本棚に追加',
   initialStatus = 'reading',
+  initialFields,
 }: {
   /** 保存の直前に本を返す。手入力の検証エラーは文の配列で返す。 */
   getBook: () => BookCandidate | string[];
   onSave: SaveHandler;
   submitLabel?: string;
   initialStatus?: Status;
+  /** 形式・サービス・長さなどの初期値（Audibleからの取り込みなど） */
+  initialFields?: Partial<RecordFields>;
 }) {
   const [fields, setFields] = useState<RecordFields>({
     format: 'paper',
@@ -36,6 +39,7 @@ export function SaveForm({
     platform: '',
     date: todayLocal(),
     totalMinutes: '',
+    ...initialFields,
   });
   const [errors, setErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);

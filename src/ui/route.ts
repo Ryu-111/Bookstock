@@ -1,6 +1,7 @@
 export type Route =
   | { page: 'shelf' }
-  | { page: 'add' }
+  /** audible はブックマークレットから届いたJSON（検証前の外部入力） */
+  | { page: 'add'; audible?: string }
   | { page: 'record'; id: string }
   | { page: 'stats' }
   | { page: 'recommend' }
@@ -8,8 +9,13 @@ export type Route =
 
 /** location.hash を画面にする。知らない形は本棚にする。 */
 export function parseRoute(hash: string): Route {
-  const path = hash.replace(/^#/, '') || '/';
-  if (path === '/add') return { page: 'add' };
+  const [path = '/', query = ''] = (hash.replace(/^#/, '') || '/').split(
+    /\?(.*)/s,
+  );
+  if (path === '/add') {
+    const audible = new URLSearchParams(query).get('audible');
+    return audible ? { page: 'add', audible } : { page: 'add' };
+  }
   if (path === '/settings') return { page: 'settings' };
   if (path === '/stats') return { page: 'stats' };
   if (path === '/recommend') return { page: 'recommend' };
@@ -30,7 +36,9 @@ export function href(route: Route): string {
     case 'shelf':
       return '#/';
     case 'add':
-      return '#/add';
+      return route.audible
+        ? `#/add?${new URLSearchParams({ audible: route.audible }).toString()}`
+        : '#/add';
     case 'settings':
       return '#/settings';
     case 'stats':

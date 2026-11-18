@@ -27,6 +27,7 @@ export const sourceLabel: Record<BookSource, string> = {
   openbd: 'openBD',
   ndl: 'NDLサーチ',
   google: 'Google Books',
+  audible: 'Audible',
   manual: '手入力',
 };
 

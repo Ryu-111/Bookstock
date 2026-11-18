@@ -1,6 +1,7 @@
 export type Format = 'paper' | 'ebook' | 'audiobook';
 export type Status = 'want' | 'stacked' | 'reading' | 'finished' | 'dropped';
-export type BookSource = 'rakuten' | 'openbd' | 'ndl' | 'google' | 'manual';
+export type BookSource =
+  'rakuten' | 'openbd' | 'ndl' | 'google' | 'audible' | 'manual';
 
 export interface Book {
   id: string;
@@ -40,6 +41,7 @@ export const BOOK_SOURCES: readonly BookSource[] = [
   'openbd',
   'ndl',
   'google',
+  'audible',
   'manual',
 ];
 
