@@ -77,7 +77,10 @@ await test('Audible: 登録画面のハッシュで取り込みを受け取れ�
 /** ブックマークレットを、location・fetch・alertを差し替えて動かす。 */
 async function runBookmarklet(
   pageUrl: string,
-  respond: (url: string) => Promise<Response>,
+  respond: (url: string) => Promise<Response> = () =>
+    Promise.reject(new Error('呼ばれない')),
+  /** ページ内の要素の属性（セレクター → 属性名 → 値） */
+  dom: Record<string, Record<string, string>> = {},
 ) {
   const code = audibleBookmarklet('https://example.github.io/Bookstock/');
   assert.ok(code.startsWith('javascript:'));
@@ -85,6 +88,7 @@ async function runBookmarklet(
   const location = {
     hostname: page.hostname,
     pathname: page.pathname,
+    search: page.search,
     href: page.href,
   };
   const alerts: string[] = [];
@@ -102,6 +106,12 @@ async function runBookmarklet(
   });
   runInNewContext(code.slice('javascript:'.length), {
     location: watched,
+    document: {
+      querySelector: (selector: string) => {
+        const attrs = dom[selector];
+        return attrs ? { getAttribute: (name: string) => attrs[name] } : null;
+      },
+    },
     fetch: (url: string) => {
       requested.push(url);
       return respond(url);
@@ -155,11 +165,14 @@ await test('ブックマークレット: 作品ページでAPIを呼び、登録
 });
 
 await test('ブックマークレット: 作品ページ以外とAPIの失敗では知らせる', async () => {
-  const other = await runBookmarklet('https://example.com/pd/B0TEST0001', () =>
-    Promise.reject(new Error('呼ばれない')),
-  );
+  const other = await runBookmarklet('https://example.com/pd/B0TEST0001');
   assert.equal(other.requested.length, 0);
   assert.match(other.alerts[0] ?? '', /作品ページ/);
+  assert.match(other.alerts[0] ?? '', /example\.com/);
+
+  const noAsin = await runBookmarklet('https://www.audible.co.jp/search?k=x');
+  assert.equal(noAsin.requested.length, 0);
+  assert.match(noAsin.alerts[0] ?? '', /ASINが見つかりません/);
 
   const failed = await runBookmarklet(
     'https://www.audible.co.jp/pd/B0TEST0001',
@@ -172,4 +185,39 @@ await test('ブックマークレット: 作品ページ以外とAPIの失敗で
     () => Promise.resolve(Response.json({ product: {} })),
   );
   assert.match(empty.alerts[0] ?? '', /見つかりません/);
+});
+
+await test('ブックマークレット: URLの形が違ってもASINを見つける', async () => {
+  const ok = () => Promise.resolve(Response.json({ product: { title: 'x' } }));
+  const cases: [string, Record<string, Record<string, string>>][] = [
+    ['https://www.audible.co.jp/pd/B0TEST0001/ref=abc', {}],
+    ['https://audible.co.jp/ja_JP/pd/B0TEST0001', {}],
+    ['https://www.audible.co.jp/x?asin=B0TEST0001', {}],
+    [
+      'https://www.audible.co.jp/mobile/product',
+      {
+        'link[rel="canonical"]': {
+          href: 'https://www.audible.co.jp/pd/t/B0TEST0001',
+        },
+      },
+    ],
+    [
+      'https://www.audible.co.jp/mobile/product',
+      { '[data-asin]': { 'data-asin': 'B0TEST0001' } },
+    ],
+  ];
+  for (const [url, dom] of cases) {
+    const result = await runBookmarklet(url, ok, dom);
+    assert.deepEqual(result.alerts, [], url);
+    assert.match(result.requested[0] ?? '', /products\/B0TEST0001\?/, url);
+  }
+});
+
+await test('ブックマークレット: Amazonの商品ページからはAudibleの作品ページへ移る', async () => {
+  const result = await runBookmarklet(
+    'https://www.amazon.co.jp/dp/B0TEST0001?ref=share',
+  );
+  assert.equal(result.requested.length, 0);
+  assert.match(result.alerts[0] ?? '', /もう一度/);
+  assert.equal(result.location.href, 'https://www.audible.co.jp/pd/B0TEST0001');
 });

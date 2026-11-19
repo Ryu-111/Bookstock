@@ -92,10 +92,34 @@ export function parseAudiblePayload(raw: string): AudibleImport | undefined {
 /**
  * ブックマークレットのコード（`javascript:` から始まる）。
  * appUrl は取り込み先のBookstockのURL（例: https://example.github.io/Bookstock/）。
- * Audibleの作品ページ（URLの最後がASIN）で押すと、APIから題名・著者・長さ・書影を取り、
- * Bookstockの登録画面を開く。
+ *
+ * - Audibleのページでは、URL → canonical / og:url → ページ内の data-asin の順にASINを探し、
+ *   APIから題名・著者・長さ・書影を取ってBookstockの登録画面を開く。
+ * - Amazonの商品ページ（Audibleアプリの共有リンクの行き先など）では、同じASINのAudibleの
+ *   作品ページへ移る（AmazonのページからはAPIをCORSで読めない）。もう一度押すと取り込める。
+ * - ASINが見つからないときは、開いているURLを添えて知らせる。
  */
 export function audibleBookmarklet(appUrl: string): string {
-  const code = `(()=>{const A=${JSON.stringify(appUrl)};const id=location.pathname.split('/').filter(Boolean).pop()||'';if(!/(^|\\.)audible\\.co\\.jp$/.test(location.hostname)||!/^[0-9A-Z]{10}$/.test(id)){alert('Audibleの作品ページで押してください');return}fetch('https://api.audible.co.jp/1.0/catalog/products/'+id+'?response_groups=contributors,media,product_attrs').then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}).then(d=>{const p=d&&d.product;if(!p||!p.title)throw new Error('作品が見つかりません');const n=a=>(Array.isArray(a)?a:[]).map(x=>x&&x.name).filter(Boolean);const o={v:1,asin:p.asin||id,title:p.title,authors:n(p.authors),publisher:p.publisher_name,date:p.release_date,minutes:p.runtime_length_min,cover:p.product_images&&p.product_images['500']};location.href=A+'#/add?audible='+encodeURIComponent(JSON.stringify(o))}).catch(e=>alert('Bookstockに取り込めませんでした: '+e.message))})()`;
-  return `javascript:${code}`;
+  const lines = [
+    '(()=>{',
+    `const A=${JSON.stringify(appUrl)};`,
+    // パスの1区切り（または ?asin= など）がASINなら返す
+    "const pick=s=>{const m=/(?:^|[/=])(B0[0-9A-Z]{8}|[0-9]{9}[0-9X])(?=[/?&\\x23.]|$)/.exec(String(s||''));return m?m[1]:''};",
+    'const meta=document.querySelector(\'link[rel="canonical"]\')||document.querySelector(\'meta[property="og:url"]\');',
+    "const el=document.querySelector('[data-asin]');",
+    "const id=pick(location.pathname)||pick(location.search)||pick(meta&&(meta.getAttribute('href')||meta.getAttribute('content')))||pick(el&&'/'+el.getAttribute('data-asin'));",
+    'if(!/(^|\\.)audible\\.co\\.jp$/.test(location.hostname)){',
+    "if(id&&/(^|\\.)amazon\\.co\\.jp$/.test(location.hostname)){alert('Audibleの作品ページに移ります。開いたら、もう一度ブックマークレットを押してください');location.href='https://www.audible.co.jp/pd/'+id;return}",
+    "alert('Audibleの作品ページ（www.audible.co.jp）で押してください\\n今のページ: '+location.href);return}",
+    "if(!id){alert('このページから作品のASINが見つかりません\\n'+location.href);return}",
+    "fetch('https://api.audible.co.jp/1.0/catalog/products/'+id+'?response_groups=contributors,media,product_attrs')",
+    ".then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json()})",
+    ".then(d=>{const p=d&&d.product;if(!p||!p.title)throw new Error('作品が見つかりません（'+id+'）');",
+    'const n=a=>(Array.isArray(a)?a:[]).map(x=>x&&x.name).filter(Boolean);',
+    "const o={v:1,asin:p.asin||id,title:p.title,authors:n(p.authors),publisher:p.publisher_name,date:p.release_date,minutes:p.runtime_length_min,cover:p.product_images&&p.product_images['500']};",
+    "location.href=A+'\\x23/add?audible='+encodeURIComponent(JSON.stringify(o))})",
+    ".catch(e=>alert('Bookstockに取り込めませんでした: '+e.message))",
+    '})()',
+  ];
+  return `javascript:${lines.join('')}`;
 }

@@ -82,6 +82,8 @@
 - 個人で使うアプリなので、利用者の了承のもとでAudibleの非公式カタログAPI（`https://api.audible.co.jp/1.0/catalog/products/<ASIN>`）を使う。2026-11-02の追記の「使わない」を改める。
 - APIはログインなしで題名・著者・長さ（`runtime_length_min`）・書影・ASINを返す。CORSは `https://www.audible.co.jp` のOriginにだけ `Access-Control-Allow-Origin` を返し、ほかのOrigin（GitHub Pagesなど）には返さない（開発環境から確認）。そのため、Bookstockから直接は呼ばない。
 - 代わりにブックマークレットを用意する（設定画面）。Audibleの作品ページ（URLの最後がASIN）で押すと、そのページ上でAPIを呼び、題名・著者・出版社・配信日・長さ・書影をJSON（`v: 1`）にして `#/add?audible=<JSON>` でBookstockを開く。登録画面は形式「オーディオ」、サービス「Audible」、長さを初期値にする。
+- ASINは、URLのパス・クエリ → canonical / og:url → ページ内の `data-asin` の順に探す（実機でURLの最後がASINでないページがあり、取り込めなかったため）。Amazonの商品ページ（`amazon.co.jp/dp/<ASIN>`。Audibleアプリの共有リンクの行き先）では、AmazonのOriginからはAPIを読めないので、同じASINのAudibleの作品ページへ移し、もう一度押してもらう。見つからないときは、開いているURLを表示する。
+- コードには `#` を書かない（`\x23` と書く）。`javascript:` のURLで `#` がフラグメントとみなされるのを避ける。
 - 届いたJSONは外部入力として検証する（`src/lookup/audible.ts`）。ASINは英大文字・数字10桁、書影はAmazonの画像サーバーのhttps URLだけ受け付ける。`Book.source` は `audible`。
 - 開いたページのURLを登録画面の検索欄に貼り付けても取り込めるようにする（別のブラウザやアプリで開いてしまった場合の逃げ道）。
 - 利用者はAndroidのChrome。Chromeはブックマーク一覧から `javascript:` を開いても実行しないので、アドレスバーにブックマーク名を入力して候補から選ぶよう案内する。
