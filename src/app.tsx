@@ -22,6 +22,7 @@ import { RecommendPage } from './ui/recommend.js';
 import { RecordPage } from './ui/record-page.js';
 import type { RecordActions } from './ui/record-page.js';
 import { Icon } from './ui/ios.js';
+import { AudibleSettings } from './ui/audible-settings.js';
 import { href, parseRoute } from './ui/route.js';
 import type { Route } from './ui/route.js';
 import { Search } from './ui/search.js';
@@ -273,7 +274,14 @@ export function App() {
             }
           />
         )}
-        {route.page === 'add' && <Search onSave={onSave} rakuten={rakuten} />}
+        {route.page === 'add' && (
+          <Search
+            key={route.audible ?? ''}
+            onSave={onSave}
+            rakuten={rakuten}
+            {...(route.audible ? { audible: route.audible } : {})}
+          />
+        )}
         {route.page === 'record' && (
           <RecordPage
             key={route.id}
@@ -303,6 +311,7 @@ export function App() {
                 return ok;
               }}
             />
+            <AudibleSettings />
           </>
         )}
       </main>

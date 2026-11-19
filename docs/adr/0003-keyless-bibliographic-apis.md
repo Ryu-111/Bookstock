@@ -76,3 +76,14 @@
 - ISBNでの書誌検索の順番（openBD → NDL → Google）は変えない。NDLに届かない場合は、失敗として次のサービスに進む。
 - 実際の利用では、openBDからCコードが1冊も取れなかった（151冊中0冊。原因は開発環境から確かめられない）。楽天ブックスを設定している場合は、ISBNで引いた本のジャンル名でも補う。ジャンル名は事実として保存し（`Book.rakutenGenre`）、NDCへの対応は表示のたびにキーワードで行う。
 - 楽天とNDLへの問い合わせは2秒に1冊にする（楽天の1秒1回の制限に余裕を持たせる）。
+
+### 追記（2026-11-18）: Audibleの作品をブックマークレットで取り込む
+
+- 個人で使うアプリなので、利用者の了承のもとでAudibleの非公式カタログAPI（`https://api.audible.co.jp/1.0/catalog/products/<ASIN>`）を使う。2026-11-02の追記の「使わない」を改める。
+- APIはログインなしで題名・著者・長さ（`runtime_length_min`）・書影・ASINを返す。CORSは `https://www.audible.co.jp` のOriginにだけ `Access-Control-Allow-Origin` を返し、ほかのOrigin（GitHub Pagesなど）には返さない（開発環境から確認）。そのため、Bookstockから直接は呼ばない。
+- 代わりにブックマークレットを用意する（設定画面）。Audibleの作品ページ（URLの最後がASIN）で押すと、そのページ上でAPIを呼び、題名・著者・出版社・配信日・長さ・書影をJSON（`v: 1`）にして `#/add?audible=<JSON>` でBookstockを開く。登録画面は形式「オーディオ」、サービス「Audible」、長さを初期値にする。
+- 届いたJSONは外部入力として検証する（`src/lookup/audible.ts`）。ASINは英大文字・数字10桁、書影はAmazonの画像サーバーのhttps URLだけ受け付ける。`Book.source` は `audible`。
+- 開いたページのURLを登録画面の検索欄に貼り付けても取り込めるようにする（別のブラウザやアプリで開いてしまった場合の逃げ道）。
+- 利用者はAndroidのChrome。Chromeはブックマーク一覧から `javascript:` を開いても実行しないので、アドレスバーにブックマーク名を入力して候補から選ぶよう案内する。
+- 中継サーバーは置かない（ADR-0001）。Audibleへ送るのはASINだけで、読書記録は送らない。
+- 非公式APIなので、仕様が変わると使えなくなる。その場合も手入力で登録できる。

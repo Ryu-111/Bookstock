@@ -23,7 +23,7 @@ export interface LookupDeps {
 }
 
 export type Outcome = 'found' | 'not_found' | 'auth' | FetchFailure;
-export type RemoteSource = Exclude<BookSource, 'manual'>;
+export type RemoteSource = Exclude<BookSource, 'manual' | 'audible'>;
 export interface Attempt {
   source: RemoteSource;
   outcome: Outcome;

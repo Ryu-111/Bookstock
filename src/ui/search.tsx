@@ -1,8 +1,9 @@
-import { useState } from 'preact/hooks';
+import { useMemo, useState } from 'preact/hooks';
 import type { BookCandidate } from '../domain/book.js';
 import { toIsbn13 } from '../domain/isbn.js';
 import { emptyManualFields } from '../domain/manual.js';
 import type { ManualFields } from '../domain/manual.js';
+import { parseAudiblePayload } from '../lookup/audible.js';
 import { lookupIsbn, searchBooks } from '../lookup/index.js';
 import type { Attempt, LookupDeps, SearchField } from '../lookup/index.js';
 import type { RakutenConfig } from '../lookup/rakuten.js';
@@ -13,6 +14,7 @@ import { outcomeLabel, sourceLabel } from './labels.js';
 import { ManualForm } from './manual-form.js';
 import { SaveForm } from './save-form.js';
 import type { SaveHandler } from './save-form.js';
+import { parseRoute } from './route.js';
 import { Scanner } from './scanner.js';
 
 export type { SaveHandler } from './save-form.js';
@@ -55,6 +57,63 @@ function manualInitial(query: string, field: SearchField): ManualFields {
     : { ...emptyManualFields, title: query.trim() };
 }
 
+/** 検索欄に貼られたBookstockの取り込みURL（`#/add?audible=`）から、取り込みのJSONを取り出す。 */
+function pastedAudible(input: string): string | undefined {
+  const hash = /#\/add\?.*$/s.exec(input.trim())?.[0];
+  if (!hash) return undefined;
+  const route = parseRoute(hash);
+  return route.page === 'add' ? route.audible : undefined;
+}
+
+/** Audibleから取り込んだ本。保存フォームはオーディオブック・Audible・長さを初期値にする。 */
+function AudibleImportView({
+  payload,
+  onSave,
+}: {
+  payload: string;
+  onSave: SaveHandler;
+}) {
+  const imported = useMemo(() => parseAudiblePayload(payload), [payload]);
+  if (!imported)
+    return (
+      <p role="alert">
+        Audibleからのデータを読めませんでした。作品ページでもう一度ブックマークレットを押してください。
+      </p>
+    );
+  const { book, totalMinutes } = imported;
+  return (
+    <ul class="result-list" aria-label="Audibleから取り込み">
+      <li>
+        <div class="result" aria-current="true">
+          <Cover book={book} />
+          <span class="result-text">
+            <strong>{book.title}</strong>
+            <span>{book.authors.join('、') || '著者不明'}</span>
+            <small>
+              {[
+                'Audible',
+                totalMinutes && `${totalMinutes}分`,
+                book.publishedDate,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </small>
+          </span>
+        </div>
+        <SaveForm
+          getBook={() => book}
+          onSave={onSave}
+          initialFields={{
+            format: 'audiobook',
+            platform: 'Audible',
+            totalMinutes: totalMinutes ? String(totalMinutes) : '',
+          }}
+        />
+      </li>
+    </ul>
+  );
+}
+
 const FIELDS: readonly (readonly [SearchField, string])[] = [
   ['title', 'タイトル'],
   ['author', '著者'],
@@ -63,9 +122,12 @@ const FIELDS: readonly (readonly [SearchField, string])[] = [
 export function Search({
   onSave,
   rakuten,
+  audible,
 }: {
   onSave: SaveHandler;
   rakuten: RakutenConfig | null;
+  /** ブックマークレットから届いたJSON（検証前） */
+  audible?: string;
 }) {
   const deps: LookupDeps = {
     fetch: (url, init) => window.fetch(url, init),
@@ -78,12 +140,20 @@ export function Search({
   const [scanning, setScanning] = useState(false);
   const [manual, setManual] = useState<ManualFields>();
   const [selected, setSelected] = useState<BookCandidate>();
+  const [imported, setImported] = useState(audible);
 
   /** ISBNとして正しければISBNで、そうでなければ選んだ対象（タイトル・著者）で検索する。 */
   async function search(input = query) {
     if (!input.trim()) return;
     setManual(undefined);
     setSelected(undefined);
+    const pasted = pastedAudible(input);
+    setImported(pasted);
+    if (pasted) {
+      setQuery('');
+      setState({ kind: 'idle' });
+      return;
+    }
     setState({ kind: 'loading' });
     try {
       if (toIsbn13(input)) {
@@ -110,6 +180,7 @@ export function Search({
     if (!(await onSave(book, record))) return false;
     setManual(undefined);
     setSelected(undefined);
+    setImported(undefined);
     setState({ kind: 'idle' });
     setQuery('');
     return true;
@@ -161,6 +232,7 @@ export function Search({
           class="button-tinted"
           onClick={() => {
             setSelected(undefined);
+            setImported(undefined);
             setManual(manualInitial(query, field));
           }}
         >
@@ -175,6 +247,9 @@ export function Search({
           }}
           onClose={() => setScanning(false)}
         />
+      )}
+      {imported && !manual && (
+        <AudibleImportView payload={imported} onSave={save} />
       )}
       {state.kind === 'loading' && (
         <p class="footnote" role="status">
